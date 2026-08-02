@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Search, Edit2, Trash2, DollarSign, 
   Users, Calendar,
@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, X, AlertOctagon, Bell, User, Archive, LayoutDashboard
 } from 'lucide-react';
 
-// Dados iniciais (adicionado a propriedade active: true)
+// Dados iniciais
 const initialData = [
   { id: '1', name: 'Alessandra', dueDate: 2, paidMonths: 0, subscriptions: 2, customValue: 30, paymentHistory: [], notes: '', active: true },
   { id: '2', name: 'Aliatar - 10', dueDate: 10, paidMonths: 0, subscriptions: 3, customValue: 30, paymentHistory: [], notes: '', active: true },
@@ -95,8 +95,10 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL'); 
   
+  // Estado para Navegação de Meses
   const [currentViewMonth, setCurrentViewMonth] = useState(getRealTodayString());
   
+  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -107,13 +109,14 @@ export default function App() {
   const [payingClient, setPayingClient] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   
+  // Form states
   const [formData, setFormData] = useState({
     name: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: getRealTodayString(), customValue: 30, paymentHistory: [], notes: '', active: true
   });
 
   const [paymentForm, setPaymentForm] = useState({ monthsToPay: 1, discount: 0 });
 
-  // Load Data
+  // Load and Migrate Data
   useEffect(() => {
     const savedClients = localStorage.getItem('@GerenciadorAssinaturas:clientsV9');
     const savedGlobalUnitValue = localStorage.getItem('@GerenciadorAssinaturas:globalUnitValue');
@@ -134,7 +137,7 @@ export default function App() {
         customValue: c.customValue !== undefined ? c.customValue : (Number(savedGlobalUnitValue) || 30),
         paymentHistory: c.paymentHistory || [],
         notes: c.notes || '',
-        active: c.active !== false // Garante que todos da versão antiga se tornem ativos
+        active: c.active !== false 
       }));
 
       setClients(migratedData);
@@ -144,6 +147,7 @@ export default function App() {
     setIsLoaded(true); 
   }, []);
 
+  // Save to local storage SEMPRE que 'clients' mudar
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem('@GerenciadorAssinaturas:clientsV9', JSON.stringify(clients));
@@ -151,6 +155,7 @@ export default function App() {
     }
   }, [clients, globalUnitValue, isLoaded]);
 
+  // Função para navegar entre meses
   const handleMonthChange = (direction) => {
     const [year, month] = currentViewMonth.split('-').map(Number);
     let newMonth = month + direction;
@@ -162,7 +167,7 @@ export default function App() {
 
   const isCurrentRealMonth = currentViewMonth === getRealTodayString();
 
-  // Calcula status considerando arquivamento
+  // Calcula status
   const getClientStatus = (client, viewMonthStr) => {
     const [viewYear, viewMonth] = viewMonthStr.split('-').map(Number);
     const [nextYear, nextMonth] = (client.nextPayment || getRealTodayString()).split('-').map(Number);
@@ -170,12 +175,10 @@ export default function App() {
     const viewAbsMonth = viewYear * 12 + viewMonth;
     const nextAbsMonth = nextYear * 12 + nextMonth;
 
-    // Se ele já pagou por este mês visualizado, ele SEMPRE aparece como pago (mesmo se foi arquivado depois)
     if (nextAbsMonth > viewAbsMonth) {
       return { status: 'PAID', label: 'Pago', color: 'text-emerald-700 bg-emerald-100 border-emerald-200', icon: CheckCircle, urgency: 4, diffDays: 0 };
     }
 
-    // Se ele NÃO pagou e está inativo, nós retornamos o status ARCHIVED (para não somar nem mostrar como devedor)
     if (client.active === false) {
       return { status: 'ARCHIVED', label: 'Inativo', color: 'text-slate-500 bg-slate-100', icon: Archive, urgency: 99, diffDays: 0 };
     }
@@ -219,7 +222,7 @@ export default function App() {
     let list = clients.map(c => ({
       ...c,
       paymentStatus: getClientStatus(c, currentViewMonth)
-    })).filter(c => c.paymentStatus.status !== 'ARCHIVED'); // Esconde da lista os que estão inativos e não pagaram no mês
+    })).filter(c => c.paymentStatus.status !== 'ARCHIVED');
 
     if (searchTerm) {
       list = list.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -248,7 +251,6 @@ export default function App() {
       const val = Number(c.customValue) || globalUnitValue;
       const status = getClientStatus(c, currentViewMonth).status;
       
-      // Contabiliza apenas se o cliente não estiver arquivado ou se ele pagou no mês visto
       if (status !== 'ARCHIVED') {
         activeSubs += subs;
         expectedRevenue += (subs * val);
@@ -314,24 +316,20 @@ export default function App() {
     setClientToDelete(client);
   };
 
-  // Arquiva o cliente (Soft Delete)
   const confirmArchive = () => {
     if (clientToDelete) {
       const updatedClients = clients.map(c => 
         String(c.id) === String(clientToDelete.id) ? { ...c, active: false } : c
       );
       setClients(updatedClients); 
-      localStorage.setItem('@GerenciadorAssinaturas:clientsV9', JSON.stringify(updatedClients)); 
     }
     setClientToDelete(null); 
   };
 
-  // Exclui permanentemente o cliente (Hard Delete)
   const confirmHardDelete = () => {
     if (clientToDelete) {
       const updatedClients = clients.filter(c => String(c.id) !== String(clientToDelete.id));
       setClients(updatedClients); 
-      localStorage.setItem('@GerenciadorAssinaturas:clientsV9', JSON.stringify(updatedClients)); 
     }
     setClientToDelete(null); 
   };
@@ -409,11 +407,9 @@ export default function App() {
       {/* CABEÇALHO */}
       <div className="px-5 pt-10 pb-6 flex justify-between items-center bg-slate-50">
         <div className="flex items-center gap-3">
-          {/* Logo */}
           <div className="w-11 h-11 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-indigo-200 shrink-0">
             <LayoutDashboard size={22} strokeWidth={2.5} />
           </div>
-          {/* Títulos */}
           <div>
             <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mb-0.5">App Gestão</p>
             <h1 className="text-[1.05rem] font-extrabold text-slate-800 leading-tight">
@@ -437,11 +433,9 @@ export default function App() {
         </div>
       </div>
 
-      {/* CARDS DE INFORMAÇÕES (GRID RESPONSIVO) */}
+      {/* CARDS DE INFORMAÇÕES */}
       <div className="px-5 mb-6 flex flex-col gap-4">
-        
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Card Ativos (Invertido: agora é o primeiro) */}
           <div className="bg-white p-4 rounded-[1.25rem] shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-indigo-100/60 flex items-center justify-center text-indigo-600 shrink-0">
               <Users size={24} strokeWidth={2.5} />
@@ -454,7 +448,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Card Arrecadado (Invertido: agora é o segundo) */}
           <div className="bg-white p-4 rounded-[1.25rem] shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-emerald-100/60 flex items-center justify-center text-emerald-600 shrink-0">
               <DollarSign size={24} strokeWidth={2.5} />
@@ -468,7 +461,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Quantitativos de Status */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-red-50 p-3 rounded-2xl border border-red-100 flex flex-col gap-1 justify-center relative overflow-hidden">
             <div className="absolute top-0 right-0 p-2 opacity-10 text-red-500"><AlertCircle size={32} /></div>
@@ -506,10 +498,9 @@ export default function App() {
             <span className="text-2xl font-extrabold text-blue-700 relative z-10">{stats.pending}</span>
           </div>
         </div>
-
       </div>
 
-      {/* CALENDÁRIO DE COMPETÊNCIAS */}
+      {/* CALENDÁRIO */}
       <div className="px-5 mb-8">
         <div className="bg-white rounded-[1.5rem] p-2 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] border border-slate-100 flex items-center justify-between">
           <button onClick={() => handleMonthChange(-1)} className="p-3 text-slate-400 hover:bg-slate-50 hover:text-slate-800 rounded-xl transition">
@@ -528,7 +519,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* CONTEÚDO PRINCIPAL (BUSCA E LISTA) */}
+      {/* CONTEÚDO PRINCIPAL */}
       <div className="px-5 space-y-5">
         <div>
           <div className="relative mb-4">
@@ -566,7 +557,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Lista de Clientes */}
         <div className="space-y-4">
           {processedClients.map((client) => {
             const StatusIcon = client.paymentStatus.icon;
@@ -575,7 +565,6 @@ export default function App() {
             
             return (
               <div key={client.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-3 relative overflow-hidden">
-                {/* Linha colorida indicativa do status */}
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${
                   isPaid ? 'bg-emerald-500' : 
                   client.paymentStatus.status.includes('OVERDUE') ? 'bg-red-500' : 
@@ -599,7 +588,6 @@ export default function App() {
                     </div>
                   </div>
                   
-                  {/* BOTÕES DE AÇÃO COLORIDOS (LIXEIRA E EDITAR) */}
                   <div className="flex items-center gap-1.5">
                     <button 
                       onClick={(e) => requestDelete(e, client)} 
@@ -660,7 +648,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* FAB */}
       <button 
         onClick={() => handleOpenModal()}
         className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-300 hover:bg-indigo-700 active:scale-90 transition-transform z-10"
@@ -668,7 +655,7 @@ export default function App() {
         <Plus size={28} />
       </button>
 
-      {/* MODAL DE NOTIFICAÇÕES (SINO) */}
+      {/* MODAIS */}
       {isNotificationsOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-end sm:items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 flex flex-col">
@@ -717,7 +704,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO DE ARQUIVAMENTO/EXCLUSÃO */}
       {clientToDelete && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6">
@@ -735,7 +721,6 @@ export default function App() {
                 <button onClick={confirmArchive} className="flex-1 py-3.5 bg-red-500 text-white font-bold rounded-2xl hover:bg-red-600 transition active:scale-95 flex items-center justify-center gap-2"><Archive size={18}/> Desativar</button>
               </div>
               
-              {/* Opção para apagar tudo (Hard delete) caso ele realmente queira limpar do banco */}
               <button onClick={confirmHardDelete} className="text-xs text-slate-400 hover:text-red-500 underline py-2 mt-2 transition">
                  Excluir permanentemente (apaga o histórico)
               </button>
@@ -744,7 +729,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE ADIÇÃO/EDIÇÃO DO CLIENTE */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
           <div className="bg-white w-full sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 flex flex-col max-h-[90vh]">
@@ -756,7 +740,6 @@ export default function App() {
             <form id="client-form" onSubmit={handleSaveClient} className="p-6 overflow-y-auto flex-1">
               <div className="space-y-5">
                 
-                {/* AVISO DE CLIENTE DESATIVADO (Para ele poder reativar) */}
                 {editingClient && formData.active === false && (
                   <div className="bg-slate-100 border border-slate-200 p-3 rounded-2xl flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2 text-slate-600">
@@ -800,7 +783,6 @@ export default function App() {
                   <p className="text-[11px] text-indigo-600/70 mt-2 leading-tight">Define quando o status voltará a ser "A Vencer".</p>
                 </div>
 
-                {/* CAMPO OBSERVAÇÕES */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">Observações</label>
                   <textarea 
@@ -853,7 +835,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal Payment */}
       {isPaymentModalOpen && payingClient && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden">
@@ -906,7 +887,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal Global Settings (Aberto no ícone do Usuário) */}
       {isConfigModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 p-6">
@@ -928,6 +908,5 @@ export default function App() {
     </div>
   );
 }
-
 
 
