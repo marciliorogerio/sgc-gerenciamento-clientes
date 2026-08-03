@@ -3,7 +3,7 @@ import {
   Plus, Search, Edit2, Trash2, DollarSign, 
   Users, Calendar,
   AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
-  ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff
+  ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff, RotateCcw
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -84,7 +84,6 @@ export default function App() {
     const unsubscribe = onSnapshot(clientsCollectionRef, (snapshot) => {
       const items = [];
       snapshot.forEach((docSnap) => {
-        // CORREÇÃO CRUCIAL AQUI: O id da nuvem tem de estar no fim para substituir o falso id antigo!
         items.push({ ...docSnap.data(), id: docSnap.id });
       });
 
@@ -116,12 +115,12 @@ export default function App() {
     const viewAbsMonth = viewYear * 12 + viewMonth;
     const nextAbsMonth = nextYear * 12 + nextMonth;
 
-    if (nextAbsMonth > viewAbsMonth) {
-      return { status: 'PAID', label: 'Pago', color: 'text-emerald-700 bg-emerald-100 border-emerald-200', icon: CheckCircle, urgency: 4, diffDays: 0 };
+    if (client.active === false) {
+      return { status: 'ARCHIVED', label: 'Inativo', color: 'text-slate-500 bg-slate-100 border-slate-200', icon: Archive, urgency: 99, diffDays: 0 };
     }
 
-    if (client.active === false) {
-      return { status: 'ARCHIVED', label: 'Inativo', color: 'text-slate-500 bg-slate-100', icon: Archive, urgency: 99, diffDays: 0 };
+    if (nextAbsMonth > viewAbsMonth) {
+      return { status: 'PAID', label: 'Pago', color: 'text-emerald-700 bg-emerald-100 border-emerald-200', icon: CheckCircle, urgency: 4, diffDays: 0 };
     }
 
     const [realYear, realMonth] = getRealTodayString().split('-').map(Number);
@@ -163,16 +162,21 @@ export default function App() {
     let list = clients.map(c => ({
       ...c,
       paymentStatus: getClientStatus(c, currentViewMonth)
-    })).filter(c => c.paymentStatus.status !== 'ARCHIVED');
+    }));
+
+    if (filterType === 'ARCHIVED') {
+      list = list.filter(c => c.paymentStatus.status === 'ARCHIVED');
+    } else {
+      list = list.filter(c => c.paymentStatus.status !== 'ARCHIVED');
+      if (filterType === 'OVERDUE') list = list.filter(c => c.paymentStatus.status.includes('OVERDUE'));
+      if (filterType === 'TODAY') list = list.filter(c => c.paymentStatus.status === 'TODAY');
+      if (filterType === 'UPCOMING') list = list.filter(c => ['SOON', 'PENDING'].includes(c.paymentStatus.status));
+      if (filterType === 'PAID') list = list.filter(c => c.paymentStatus.status === 'PAID');
+    }
 
     if (searchTerm) {
       list = list.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }
-
-    if (filterType === 'OVERDUE') list = list.filter(c => c.paymentStatus.status.includes('OVERDUE'));
-    if (filterType === 'TODAY') list = list.filter(c => c.paymentStatus.status === 'TODAY');
-    if (filterType === 'UPCOMING') list = list.filter(c => ['SOON', 'PENDING'].includes(c.paymentStatus.status));
-    if (filterType === 'PAID') list = list.filter(c => c.paymentStatus.status === 'PAID');
 
     list.sort((a, b) => {
       if (a.paymentStatus.urgency !== b.paymentStatus.urgency) {
@@ -185,7 +189,8 @@ export default function App() {
   }, [clients, searchTerm, filterType, currentViewMonth]);
 
   const stats = useMemo(() => {
-    let overdue = 0; let today = 0; let soon = 0; let pending = 0; let activeSubs = 0; let expectedRevenue = 0; let collectedRevenue = 0;
+    let overdue = 0; let today = 0; let soon = 0; let pending = 0; let paid = 0; 
+    let activeSubs = 0; let expectedRevenue = 0; let collectedRevenue = 0;
     
     clients.forEach(c => {
       const subs = Number(c.subscriptions) || 0;
@@ -200,11 +205,11 @@ export default function App() {
         if (status === 'TODAY') today++;
         if (status === 'SOON') soon++;
         if (status === 'PENDING') pending++;
-        if (status === 'PAID') collectedRevenue += (subs * val);
+        if (status === 'PAID') { paid++; collectedRevenue += (subs * val); }
       }
     });
 
-    return { overdue, today, soon, pending, activeSubs, expectedRevenue, collectedRevenue };
+    return { overdue, today, soon, pending, paid, activeSubs, expectedRevenue, collectedRevenue };
   }, [clients, globalUnitValue, currentViewMonth]);
 
   const hasNotifications = isCurrentRealMonth && (stats.overdue > 0 || stats.today > 0);
@@ -255,7 +260,6 @@ export default function App() {
     try {
       const clientsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
       if (editingClient) {
-        // Usa o ID forte gerado e forçado pela nuvem
         const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', editingClient.id);
         await updateDoc(docRef, clientData);
       } else {
@@ -295,6 +299,16 @@ export default function App() {
     setClientToDelete(null); 
   };
   
+  const handleReactivate = async (client) => {
+    if (!user) return;
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', client.id);
+      await updateDoc(docRef, { active: true });
+    } catch (err) {
+      console.error("Erro ao reativar:", err);
+    }
+  };
+
   const handleOpenPaymentModal = (client) => {
     setPayingClient(client);
     setPaymentForm({ monthsToPay: 1, discount: 0 });
@@ -354,6 +368,43 @@ export default function App() {
       handleClosePaymentModal();
     } catch (err) {
       console.error("Erro ao registar pagamento:", err);
+    }
+  };
+
+  const handleUndoPayment = async (client, recordId) => {
+    const recordToUndo = client.paymentHistory.find(r => r.id === recordId);
+    if (!recordToUndo) return;
+
+    const confirm = window.confirm(`Tem certeza que deseja desfazer este recebimento de ${formatCurrency(recordToUndo.amount)}?\n\nO cliente voltará a constar como devedor neste período.`);
+    if (!confirm) return;
+
+    let [year, month] = (client.nextPayment || getRealTodayString()).split('-').map(Number);
+    month -= recordToUndo.monthsPaid;
+    while (month < 1) { month += 12; year -= 1; }
+    const revertedNextPaymentStr = `${year}-${String(month).padStart(2, '0')}`;
+
+    const newPaidMonths = Math.max(0, (Number(client.paidMonths) || 0) - recordToUndo.monthsPaid);
+    const newHistory = client.paymentHistory.filter(r => r.id !== recordId);
+
+    const updatedData = {
+      nextPayment: revertedNextPaymentStr,
+      paidMonths: newPaidMonths,
+      paymentHistory: newHistory
+    };
+
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', client.id);
+      await updateDoc(docRef, updatedData);
+      
+      setFormData(prev => ({
+        ...prev,
+        nextPayment: revertedNextPaymentStr,
+        paidMonths: newPaidMonths,
+        paymentHistory: newHistory
+      }));
+    } catch (err) {
+      console.error("Erro ao desfazer:", err);
+      alert("Erro ao desfazer pagamento.");
     }
   };
 
@@ -431,7 +482,8 @@ export default function App() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* 5 CARDS DE STATUS MENORES - Card de Pagos agora do mesmo tamanho */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           <div className="bg-red-50 p-3 rounded-2xl border border-red-100 flex flex-col gap-1 justify-center relative overflow-hidden">
             <div className="absolute top-0 right-0 p-2 opacity-10 text-red-500"><AlertCircle size={32} /></div>
             <div className="flex items-center gap-1.5 text-red-600 relative z-10">
@@ -466,6 +518,15 @@ export default function App() {
                 <span className="text-[10px] font-bold uppercase tracking-wider">A Vencer</span>
             </div>
             <span className="text-2xl font-extrabold text-blue-700 relative z-10">{stats.pending}</span>
+          </div>
+
+          <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-100 flex flex-col gap-1 justify-center relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-2 opacity-10 text-emerald-500"><CheckCircle size={32} /></div>
+            <div className="flex items-center gap-1.5 text-emerald-600 relative z-10">
+                <CheckCircle size={14} />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Pagos</span>
+            </div>
+            <span className="text-2xl font-extrabold text-emerald-700 relative z-10">{stats.paid}</span>
           </div>
         </div>
       </div>
@@ -506,8 +567,8 @@ export default function App() {
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
-            {['ALL', 'OVERDUE', 'TODAY', 'UPCOMING', 'PAID'].map((type) => {
-              const labels = { ALL: 'Todos', OVERDUE: 'Em Atraso', TODAY: 'Hoje', UPCOMING: 'A Vencer', PAID: 'Pagos' };
+            {['ALL', 'OVERDUE', 'TODAY', 'UPCOMING', 'PAID', 'ARCHIVED'].map((type) => {
+              const labels = { ALL: 'Todos', OVERDUE: 'Em Atraso', TODAY: 'Hoje', UPCOMING: 'A Vencer', PAID: 'Pagos', ARCHIVED: 'Inativos' };
               if (!isCurrentRealMonth && ['TODAY'].includes(type)) return null;
               
               return (
@@ -532,11 +593,13 @@ export default function App() {
             const StatusIcon = client.paymentStatus.icon;
             const clientVal = Number(client.customValue) || globalUnitValue;
             const isPaid = client.paymentStatus.status === 'PAID';
+            const isArchived = client.paymentStatus.status === 'ARCHIVED';
             
             return (
               <div key={client.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-3 relative overflow-hidden">
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${
                   isPaid ? 'bg-emerald-500' : 
+                  isArchived ? 'bg-slate-400' :
                   client.paymentStatus.status.includes('OVERDUE') ? 'bg-red-500' : 
                   client.paymentStatus.status === 'TODAY' ? 'bg-orange-500' : 
                   client.paymentStatus.status === 'SOON' ? 'bg-yellow-500' : 'bg-blue-500'
@@ -545,7 +608,7 @@ export default function App() {
                 <div className="flex justify-between items-start pl-2">
                   <div className="flex-1 cursor-pointer" onClick={() => handleOpenModal(client)}>
                     <div className="flex items-center gap-2 mb-1.5">
-                      <h3 className="font-bold text-lg text-slate-800">{client.name}</h3>
+                      <h3 className={`font-bold text-lg ${isArchived ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{client.name}</h3>
                       <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1 ${client.paymentStatus.color}`}>
                         <StatusIcon size={12} />
                         {client.paymentStatus.label}
@@ -559,13 +622,15 @@ export default function App() {
                   </div>
                   
                   <div className="flex items-center gap-1.5">
-                    <button 
-                      onClick={(e) => requestDelete(e, client)} 
-                      className="p-2.5 text-red-500 bg-red-50 hover:bg-red-100 transition active:scale-90 rounded-xl"
-                      title="Excluir/Arquivar Cliente"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {!isArchived && (
+                      <button 
+                        onClick={(e) => requestDelete(e, client)} 
+                        className="p-2.5 text-red-500 bg-red-50 hover:bg-red-100 transition active:scale-90 rounded-xl"
+                        title="Excluir/Arquivar Cliente"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                     <button 
                       onClick={() => handleOpenModal(client)} 
                       className="p-2.5 text-indigo-500 bg-indigo-50 hover:bg-indigo-100 transition active:scale-90 rounded-xl"
@@ -591,18 +656,29 @@ export default function App() {
                       Total recebido: <strong className="text-slate-700">{client.paidMonths || 0}x</strong>
                     </span>
                   </div>
-                  {!isPaid && (
+                  {isArchived ? (
                     <button 
-                      onClick={() => handleOpenPaymentModal(client)}
-                      className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 active:scale-95 transition shadow-sm border border-indigo-100"
+                      onClick={(e) => { e.stopPropagation(); handleReactivate(client); }}
+                      className="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-900 active:scale-95 transition shadow-sm"
                     >
-                      <DollarSign size={16} /> Receber
+                      <RotateCcw size={16} /> Reativar
                     </button>
-                  )}
-                  {isPaid && (
-                    <span className="text-emerald-600 text-sm font-bold flex items-center gap-1">
-                      <CheckCircle size={16}/> Recebido
-                    </span>
+                  ) : (
+                    <>
+                      {!isPaid && (
+                        <button 
+                          onClick={() => handleOpenPaymentModal(client)}
+                          className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 active:scale-95 transition shadow-sm border border-indigo-100"
+                        >
+                          <DollarSign size={16} /> Receber
+                        </button>
+                      )}
+                      {isPaid && (
+                        <span className="text-emerald-600 text-sm font-bold flex items-center gap-1">
+                          <CheckCircle size={16}/> Recebido
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -683,7 +759,7 @@ export default function App() {
               </div>
               <h2 className="text-xl font-bold text-slate-800 mb-2">Desativar Cliente?</h2>
               <p className="text-slate-500 mb-6 text-sm">
-                <strong>{clientToDelete.name}</strong> sairá da lista principal e deixará de ser cobrado(a), mas os <strong>pagamentos antigos continuarão salvos</strong>.
+                <strong>{clientToDelete.name}</strong> sairá da lista principal e deixará de ser cobrado(a), mas os <strong>pagamentos antigos continuarão salvos</strong>. Poderá reativá-lo mais tarde na aba de Inativos.
               </p>
               
               <div className="flex gap-3 w-full mb-3">
@@ -776,8 +852,8 @@ export default function App() {
                         {formData.paymentHistory && formData.paymentHistory.length > 0 ? (
                           <div className="space-y-4">
                             {formData.paymentHistory.map((record) => (
-                              <div key={record.id} className="text-sm border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                                <div className="flex justify-between font-bold text-slate-800">
+                              <div key={record.id} className="text-sm border-b border-slate-100 pb-3 last:border-0 last:pb-0 relative group">
+                                <div className="flex justify-between font-bold text-slate-800 pr-8">
                                   <span>{formatCurrency(record.amount)}</span>
                                   <span className="text-slate-400 text-xs font-normal">{formatDate(record.date)}</span>
                                 </div>
@@ -785,6 +861,15 @@ export default function App() {
                                   Ref: <span className="font-medium text-slate-700">{record.refMonths || `${record.monthsPaid} mês(es)`}</span>
                                 </div>
                                 {record.discount > 0 && <div className="text-xs text-emerald-600 mt-0.5">Desconto de {formatCurrency(record.discount)} aplicado.</div>}
+                                
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleUndoPayment(editingClient, record.id)}
+                                  className="absolute top-0 right-0 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition active:scale-95"
+                                  title="Desfazer este pagamento"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
                               </div>
                             ))}
                           </div>
