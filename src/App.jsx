@@ -6,12 +6,10 @@ import {
   ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff
 } from 'lucide-react';
 
-// Importações do Firebase SDK v11
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
-// Suas credenciais reais do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDfmahffoPM8p05PrJkGoL3GV87eo7NLhk",
   authDomain: "gestao-clientes-3d46b.firebaseapp.com",
@@ -109,7 +107,7 @@ const formatMonthYear = (dateString) => {
 export default function App() {
   const [user, setUser] = useState(null);
   const [isSynced, setIsSynced] = useState(false);
-  const [clients, setClients] = useState([]);
+  const [clients, setClients] = useState(initialData);
   const [globalUnitValue, setGlobalUnitValue] = useState(30.00);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL'); 
@@ -163,14 +161,13 @@ export default function App() {
           try {
             await addDoc(clientsCollectionRef, client);
           } catch (e) {
-            console.error("Erro ao popular dados:", e);
+            console.error("Erro ao popular:", e);
           }
         });
-        setClients(initialData);
       }
       setIsSynced(true);
     }, (error) => {
-      console.error("Erro ao sincronizar com Firestore:", error);
+      console.error("Erro no listener:", error);
       setIsSynced(false);
     });
 
@@ -341,8 +338,8 @@ export default function App() {
       }
       handleCloseModal();
     } catch (err) {
-      console.error("Erro ao gravar cliente no Firebase:", err);
-      alert("Erro ao salvar dados na nuvem.");
+      console.error("Erro ao gravar:", err);
+      alert("Erro ao gravar dados na nuvem.");
     }
   };
   
@@ -955,3 +952,5 @@ export default function App() {
 
     </div>
   );
+}
+
