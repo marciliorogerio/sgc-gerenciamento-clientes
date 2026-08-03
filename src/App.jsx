@@ -1,12 +1,32 @@
- import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Search, Edit2, Trash2, DollarSign, 
   Users, Calendar,
-  TrendingUp, AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
-  ChevronLeft, ChevronRight, X, AlertOctagon, Bell, User, Archive, LayoutDashboard
+  AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
+  ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff
 } from 'lucide-react';
 
-// Dados iniciais
+// Importações do Firebase SDK v11
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+
+// Configuração e Inicialização Segura do Firebase
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+  apiKey: "demo-key",
+  authDomain: "demo.firebaseapp.com",
+  projectId: "demo-project",
+  storageBucket: "demo.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:1234:web:1234"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'sgc-gerenciamento-clientes';
+
+// Dados iniciais de fallback (caso o Firebase demore ou esteja vazio)
 const initialData = [
   { id: '1', name: 'Alessandra', dueDate: 2, paidMonths: 0, subscriptions: 2, customValue: 30, paymentHistory: [], notes: '', active: true },
   { id: '2', name: 'Aliatar - 10', dueDate: 10, paidMonths: 0, subscriptions: 3, customValue: 30, paymentHistory: [], notes: '', active: true },
@@ -74,7 +94,6 @@ const initialData = [
   { id: '64', name: 'Zaranza', dueDate: 1, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true }
 ];
 
-// Helpers de Data
 const getRealTodayString = () => {
   const today = new Date();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -89,16 +108,15 @@ const formatMonthYear = (dateString) => {
 };
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [isSynced, setIsSynced] = useState(false);
   const [clients, setClients] = useState([]);
-  const [isLoaded, setIsLoaded] = useState(false);
   const [globalUnitValue, setGlobalUnitValue] = useState(30.00);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL'); 
   
-  // Estado para Navegação de Meses
   const [currentViewMonth, setCurrentViewMonth] = useState(getRealTodayString());
   
-  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -109,53 +127,66 @@ export default function App() {
   const [payingClient, setPayingClient] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   
-  // Form states
   const [formData, setFormData] = useState({
     name: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: getRealTodayString(), customValue: 30, paymentHistory: [], notes: '', active: true
   });
 
   const [paymentForm, setPaymentForm] = useState({ monthsToPay: 1, discount: 0 });
 
-  // Load and Migrate Data
+  // 1. Autenticação anónima inicial do Firebase
   useEffect(() => {
-    const savedClients = localStorage.getItem('@GerenciadorAssinaturas:clientsV9');
-    const savedGlobalUnitValue = localStorage.getItem('@GerenciadorAssinaturas:globalUnitValue');
-    
-    if (savedClients) {
-      setClients(JSON.parse(savedClients));
-    } else {
-      const oldV8 = localStorage.getItem('@GerenciadorAssinaturas:clientsV8');
-      const oldV7 = localStorage.getItem('@GerenciadorAssinaturas:clientsV7');
-      let baseData = initialData;
-      
-      if (oldV8) baseData = JSON.parse(oldV8);
-      else if (oldV7) baseData = JSON.parse(oldV7);
-
-      const migratedData = baseData.map(c => ({
-        ...c,
-        nextPayment: c.nextPayment || getRealTodayString(),
-        customValue: c.customValue !== undefined ? c.customValue : (Number(savedGlobalUnitValue) || 30),
-        paymentHistory: c.paymentHistory || [],
-        notes: c.notes || '',
-        active: c.active !== false 
-      }));
-
-      setClients(migratedData);
-    }
-
-    if (savedGlobalUnitValue) setGlobalUnitValue(Number(savedGlobalUnitValue));
-    setIsLoaded(true); 
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          // Se houver token fornecido pelo ambiente
+          await signInAnonymously(auth);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Erro na autenticação:", err);
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
   }, []);
 
-  // Save to local storage SEMPRE que 'clients' mudar
+  // 2. Sincronização em tempo real com o Firestore (Regra Pública da App)
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('@GerenciadorAssinaturas:clientsV9', JSON.stringify(clients));
-      localStorage.setItem('@GerenciadorAssinaturas:globalUnitValue', globalUnitValue.toString());
-    }
-  }, [clients, globalUnitValue, isLoaded]);
+    if (!user) return;
 
-  // Função para navegar entre meses
+    // Caminho da coleção pública garantido pelas regras da plataforma
+    const clientsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
+
+    const unsubscribe = onSnapshot(clientsCollectionRef, (snapshot) => {
+      const items = [];
+      snapshot.forEach((docSnap) => {
+        items.push({ id: docSnap.id, ...docSnap.data() });
+      });
+
+      if (items.length > 0) {
+        setClients(items);
+      } else {
+        // Se a base de dados estiver vazia, insere os dados iniciais automaticamente na nuvem
+        initialData.forEach(async (client) => {
+          try {
+            await addDoc(clientsCollectionRef, client);
+          } catch (e) {
+            console.error("Erro ao popular dados:", e);
+          }
+        });
+        setClients(initialData);
+      }
+      setIsSynced(true);
+    }, (error) => {
+      console.error("Erro ao sincronizar com Firestore:", error);
+      setIsSynced(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const handleMonthChange = (direction) => {
     const [year, month] = currentViewMonth.split('-').map(Number);
     let newMonth = month + direction;
@@ -167,7 +198,6 @@ export default function App() {
 
   const isCurrentRealMonth = currentViewMonth === getRealTodayString();
 
-  // Calcula status
   const getClientStatus = (client, viewMonthStr) => {
     const [viewYear, viewMonth] = viewMonthStr.split('-').map(Number);
     const [nextYear, nextMonth] = (client.nextPayment || getRealTodayString()).split('-').map(Number);
@@ -295,20 +325,35 @@ export default function App() {
     setEditingClient(null);
   };
 
-  const handleSaveClient = (e) => {
+  const handleSaveClient = async (e) => {
     e.preventDefault();
+    if (!user) return;
+
     const clientData = {
-      ...formData, dueDate: Number(formData.dueDate), paidMonths: Number(formData.paidMonths),
-      subscriptions: Number(formData.subscriptions), customValue: Number(formData.customValue),
-      notes: formData.notes, active: formData.active
+      name: formData.name,
+      dueDate: Number(formData.dueDate),
+      paidMonths: Number(formData.paidMonths),
+      subscriptions: Number(formData.subscriptions),
+      customValue: Number(formData.customValue),
+      nextPayment: formData.nextPayment,
+      paymentHistory: formData.paymentHistory || [],
+      notes: formData.notes || '',
+      active: formData.active
     };
 
-    if (editingClient) {
-      setClients(clients.map(c => c.id === editingClient.id ? { ...clientData, id: c.id } : c));
-    } else {
-      setClients([...clients, { ...clientData, id: Date.now().toString() }]);
+    try {
+      const clientsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
+      if (editingClient) {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', editingClient.id);
+        await updateDoc(docRef, clientData);
+      } else {
+        await addDoc(clientsCollectionRef, clientData);
+      }
+      handleCloseModal();
+    } catch (err) {
+      console.error("Erro ao gravar cliente no Firebase:", err);
+      alert("Erro ao salvar dados na nuvem.");
     }
-    handleCloseModal();
   };
   
   const requestDelete = (e, client) => {
@@ -316,20 +361,24 @@ export default function App() {
     setClientToDelete(client);
   };
 
-  const confirmArchive = () => {
-    if (clientToDelete) {
-      const updatedClients = clients.map(c => 
-        String(c.id) === String(clientToDelete.id) ? { ...c, active: false } : c
-      );
-      setClients(updatedClients); 
+  const confirmArchive = async () => {
+    if (!clientToDelete || !user) return;
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', clientToDelete.id);
+      await updateDoc(docRef, { active: false });
+    } catch (err) {
+      console.error("Erro ao arquivar:", err);
     }
     setClientToDelete(null); 
   };
 
-  const confirmHardDelete = () => {
-    if (clientToDelete) {
-      const updatedClients = clients.filter(c => String(c.id) !== String(clientToDelete.id));
-      setClients(updatedClients); 
+  const confirmHardDelete = async () => {
+    if (!clientToDelete || !user) return;
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', clientToDelete.id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      console.error("Erro ao excluir:", err);
     }
     setClientToDelete(null); 
   };
@@ -345,9 +394,9 @@ export default function App() {
     setPayingClient(null);
   };
 
-  const handleConfirmPayment = (e) => {
+  const handleConfirmPayment = async (e) => {
     e.preventDefault();
-    if (!payingClient) return;
+    if (!payingClient || !user) return;
 
     const monthsToAdd = Number(paymentForm.monthsToPay);
     const discount = Number(paymentForm.discount);
@@ -375,27 +424,25 @@ export default function App() {
       refMonths: paidMonthsLabels.join(', ')
     };
 
-    setClients(prevClients => prevClients.map(c => {
-      if (c.id === payingClient.id) {
-        let [year, month] = (c.nextPayment || getRealTodayString()).split('-').map(Number);
-        
-        month += monthsToAdd;
-        while (month > 12) { month -= 12; year += 1; }
-        
-        const nextPaymentStr = `${year}-${String(month).padStart(2, '0')}`;
-        const currentHistory = c.paymentHistory || [];
-        
-        return { 
-          ...c, 
-          nextPayment: nextPaymentStr, 
-          paidMonths: (Number(c.paidMonths) || 0) + monthsToAdd,
-          paymentHistory: [newPaymentRecord, ...currentHistory]
-        };
-      }
-      return c;
-    }));
+    let [year, month] = (payingClient.nextPayment || getRealTodayString()).split('-').map(Number);
+    month += monthsToAdd;
+    while (month > 12) { month -= 12; year += 1; }
+    const nextPaymentStr = `${year}-${String(month).padStart(2, '0')}`;
+    const currentHistory = payingClient.paymentHistory || [];
 
-    handleClosePaymentModal();
+    const updatedData = {
+      nextPayment: nextPaymentStr,
+      paidMonths: (Number(payingClient.paidMonths) || 0) + monthsToAdd,
+      paymentHistory: [newPaymentRecord, ...currentHistory]
+    };
+
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', payingClient.id);
+      await updateDoc(docRef, updatedData);
+      handleClosePaymentModal();
+    } catch (err) {
+      console.error("Erro ao registar pagamento:", err);
+    }
   };
 
   const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -411,7 +458,18 @@ export default function App() {
             <LayoutDashboard size={22} strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mb-0.5">App Gestão</p>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest">App Cloud</p>
+              {isSynced ? (
+                <span className="flex items-center gap-0.5 text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full font-medium" title="Sincronizado com a Nuvem">
+                  <Cloud size={10} /> Nuvem Ativa
+                </span>
+              ) : (
+                <span className="flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full font-medium">
+                  <CloudOff size={10} /> A ligar...
+                </span>
+              )}
+            </div>
             <h1 className="text-[1.05rem] font-extrabold text-slate-800 leading-tight">
               Sistema de Gerenciamento<br/>de Clientes
             </h1>
@@ -908,5 +966,4 @@ export default function App() {
     </div>
   );
 }
-
 
