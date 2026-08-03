@@ -11,22 +11,21 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
-// Configuração e Inicialização Segura do Firebase
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "demo-key",
-  authDomain: "demo.firebaseapp.com",
-  projectId: "demo-project",
-  storageBucket: "demo.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:1234:web:1234"
+// Suas credenciais reais do Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDfmahffoPM8p05PrJkGoL3GV87eo7NLhk",
+  authDomain: "gestao-clientes-3d46b.firebaseapp.com",
+  projectId: "gestao-clientes-3d46b",
+  storageBucket: "gestao-clientes-3d46b.firebasestorage.app",
+  messagingSenderId: "132793462008",
+  appId: "1:132793462008:web:1fad58225b3ec30cbd9f0d"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'sgc-gerenciamento-clientes';
+const appId = 'sgc-gerenciamento-clientes';
 
-// Dados iniciais de fallback (caso o Firebase demore ou esteja vazio)
 const initialData = [
   { id: '1', name: 'Alessandra', dueDate: 2, paidMonths: 0, subscriptions: 2, customValue: 30, paymentHistory: [], notes: '', active: true },
   { id: '2', name: 'Aliatar - 10', dueDate: 10, paidMonths: 0, subscriptions: 3, customValue: 30, paymentHistory: [], notes: '', active: true },
@@ -133,16 +132,10 @@ export default function App() {
 
   const [paymentForm, setPaymentForm] = useState({ monthsToPay: 1, discount: 0 });
 
-  // 1. Autenticação anónima inicial do Firebase
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          // Se houver token fornecido pelo ambiente
-          await signInAnonymously(auth);
-        } else {
-          await signInAnonymously(auth);
-        }
+        await signInAnonymously(auth);
       } catch (err) {
         console.error("Erro na autenticação:", err);
       }
@@ -152,11 +145,9 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Sincronização em tempo real com o Firestore (Regra Pública da App)
   useEffect(() => {
     if (!user) return;
 
-    // Caminho da coleção pública garantido pelas regras da plataforma
     const clientsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
 
     const unsubscribe = onSnapshot(clientsCollectionRef, (snapshot) => {
@@ -168,7 +159,6 @@ export default function App() {
       if (items.length > 0) {
         setClients(items);
       } else {
-        // Se a base de dados estiver vazia, insere os dados iniciais automaticamente na nuvem
         initialData.forEach(async (client) => {
           try {
             await addDoc(clientsCollectionRef, client);
