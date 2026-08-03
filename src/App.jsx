@@ -84,7 +84,8 @@ export default function App() {
     const unsubscribe = onSnapshot(clientsCollectionRef, (snapshot) => {
       const items = [];
       snapshot.forEach((docSnap) => {
-        items.push({ id: docSnap.id, ...docSnap.data() });
+        // CORREÇÃO CRUCIAL AQUI: O id da nuvem tem de estar no fim para substituir o falso id antigo!
+        items.push({ ...docSnap.data(), id: docSnap.id });
       });
 
       setClients(items);
@@ -254,6 +255,7 @@ export default function App() {
     try {
       const clientsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
       if (editingClient) {
+        // Usa o ID forte gerado e forçado pela nuvem
         const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', editingClient.id);
         await updateDoc(docRef, clientData);
       } else {
