@@ -3,7 +3,7 @@ import {
   Plus, Search, Edit2, Trash2, DollarSign, 
   Users, Calendar,
   AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
-  ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff, UploadCloud
+  ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -23,74 +23,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'sgc-gerenciamento-clientes';
-
-// A SUA LISTA ANTIGA
-const initialData = [
-  { name: 'Alessandra', dueDate: 2, paidMonths: 0, subscriptions: 2, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Aliatar - 10', dueDate: 10, paidMonths: 0, subscriptions: 3, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'André', dueDate: 5, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Andrea', dueDate: 6, paidMonths: 0, subscriptions: 2, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Basílio', dueDate: 14, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Beto', dueDate: 12, paidMonths: 0, subscriptions: 2, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Cris Eliel - 01', dueDate: 1, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Danilo - 13', dueDate: 29, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Darlan', dueDate: 12, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'David - 28', dueDate: 5, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Dayana - 7', dueDate: 29, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Demontie - 05', dueDate: 5, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Edilson - 06', dueDate: 12, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Eduardo', dueDate: 5, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Eliel - 12', dueDate: 12, paidMonths: 0, subscriptions: 2, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Eliene', dueDate: 26, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Everaldo', dueDate: 2, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Fabiana - 30', dueDate: 30, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Fabiana pai', dueDate: 9, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Fabrício - 11', dueDate: 11, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Fernandes', dueDate: 14, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Francilucia', dueDate: 1, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Gaúcho - 30', dueDate: 25, paidMonths: 0, subscriptions: 3, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Jefferson Andrade - 24', dueDate: 19, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'João Henrique - 06', dueDate: 6, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Jp nobre', dueDate: 4, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Jocinei - 25', dueDate: 22, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'José Filho - 04 e 10', dueDate: 27, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Jonathan', dueDate: 1, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Kleber', dueDate: 9, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Levy - 08', dueDate: 17, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Lilica - 05', dueDate: 5, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Lucas - 18', dueDate: 21, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Luiz Carlos - 15', dueDate: 15, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Maju', dueDate: 6, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Maju JP', dueDate: 6, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Marcos - 05', dueDate: 5, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Matheus - 23', dueDate: 23, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Mauro - 02', dueDate: 2, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Mayara - 15', dueDate: 17, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Murilo - 12', dueDate: 23, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Nagila - 04', dueDate: 10, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Nilton Jr - 18', dueDate: 28, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Nilton mãe - 7', dueDate: 24, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Nonato', dueDate: 27, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Paulo César - 09', dueDate: 19, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Paulo LC - 08', dueDate: 1, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Primo ok - 04', dueDate: 4, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Priscila - 28', dueDate: 17, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Rene', dueDate: 17, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Rilder - 5', dueDate: 5, paidMonths: 0, subscriptions: 2, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Robson - 18', dueDate: 29, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Silvana - 18', dueDate: 23, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Simone - 14', dueDate: 8, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Steffanie - 26', dueDate: 26, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Tico - 05', dueDate: 5, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Tom', dueDate: 5, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Valber - 13', dueDate: 25, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Wagner - 28', dueDate: 15, paidMonths: 0, subscriptions: 3, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Wellington W -29', dueDate: 29, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Wendell Wvieira - 15', dueDate: 15, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Wendell familia', dueDate: 5, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Wenderson - 14', dueDate: 31, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true },
-  { name: 'Zaranza', dueDate: 1, paidMonths: 0, subscriptions: 1, customValue: 30, paymentHistory: [], notes: '', active: true }
-];
 
 const getRealTodayString = () => {
   const today = new Date();
@@ -112,7 +44,6 @@ export default function App() {
   const [globalUnitValue, setGlobalUnitValue] = useState(30.00);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL'); 
-  const [isMigrating, setIsMigrating] = useState(false);
   
   const [currentViewMonth, setCurrentViewMonth] = useState(getRealTodayString());
   
@@ -165,32 +96,6 @@ export default function App() {
 
     return () => unsubscribe();
   }, [user]);
-
-  // FUNÇÃO MÁGICA DE MIGRAÇÃO
-  const handleMigrate = async () => {
-    if (!user) {
-      alert("Aguarde a conexão com a nuvem ficar verde primeiro!");
-      return;
-    }
-    const confirm = window.confirm(`Atenção: Tem certeza que deseja importar ${initialData.length} clientes para a nuvem? Só clique em OK se a sua lista atual estiver vazia para não duplicar.`);
-    if (!confirm) return;
-
-    setIsMigrating(true);
-    try {
-      const clientsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
-      const nextPayString = getRealTodayString();
-      
-      for (const client of initialData) {
-        await addDoc(clientsCollectionRef, { ...client, nextPayment: nextPayString });
-      }
-      alert("Importação concluída com sucesso! Todos os clientes foram salvos na nuvem.");
-    } catch (e) {
-      alert("Houve um erro na importação.");
-      console.error(e);
-    } finally {
-      setIsMigrating(false);
-    }
-  };
 
   const handleMonthChange = (direction) => {
     const [year, month] = currentViewMonth.split('-').map(Number);
@@ -495,19 +400,6 @@ export default function App() {
           </button>
         </div>
       </div>
-
-      {/* BOTÃO MÁGICO DE IMPORTAÇÃO (APARECE APENAS SE A LISTA ESTIVER VAZIA) */}
-      {clients.length === 0 && isSynced && (
-        <div className="px-5 mb-6">
-          <button 
-            onClick={handleMigrate}
-            disabled={isMigrating}
-            className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-blue-700 active:scale-95 transition"
-          >
-            {isMigrating ? 'A importar dados...' : <><UploadCloud size={20} /> IMPORTAR 64 CLIENTES ANTIGOS</>}
-          </button>
-        </div>
-      )}
 
       {/* CARDS DE INFORMAÇÕES */}
       <div className="px-5 mb-6 flex flex-col gap-4">
