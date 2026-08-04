@@ -2,15 +2,21 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
+    
+    <!-- Ícone que aparece no separador do PC (Favicon) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%232563eb'/><path d='M400 368c0 17.6-14.4 32-32 32H144c-17.6 0-32-14.4-32-32V208c0-17.6 14.4-32 32-32h224c17.6 0 32 14.4 32 32v160zm-48-240l-60.3-60.3c-6.2-6.2-16.4-6.2-22.6 0L208.8 128H352z' fill='%23fff'/></svg>" />
+    
+    <!-- Configurações Mágicas para iOS (iPhone) e Android -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Sistema de Gestão</title>
-    <!-- Carrega o Tailwind CSS automaticamente -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      body { overflow-x: hidden; }
-      .hide-scrollbar::-webkit-scrollbar { display: none; }
-      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
+    <meta name="theme-color" content="#2563eb" /> <!-- Cor da barra de topo -->
+    <meta name="apple-mobile-web-app-capable" content="yes" /> <!-- Tira a barra de pesquisa do Safari -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="App Cloud" /> <!-- Nome do atalho no ecrã -->
+    
+    <!-- O Ícone da TV que vai para o ecrã principal do iPhone/Android -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%232563eb'/><path d='M400 368c0 17.6-14.4 32-32 32H144c-17.6 0-32-14.4-32-32V208c0-17.6 14.4-32 32-32h224c17.6 0 32 14.4 32 32v160zm-48-240l-60.3-60.3c-6.2-6.2-16.4-6.2-22.6 0L208.8 128H352z' fill='%23fff'/></svg>" />
+    
+    <title>App Cloud</title>
   </head>
   <body>
     <div id="root"></div>
