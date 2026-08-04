@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
-// REMOVIDO: createUserWithEmailAndPassword para ninguém poder criar conta pela app
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
@@ -49,7 +48,15 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL'); 
   
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // PROTEÇÃO CONTRA BLOQUEIO DE MEMÓRIA NO CANVAS
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      const savedMode = localStorage.getItem('themeMode');
+      return savedMode === 'dark';
+    } catch (error) {
+      return false; // Se a memória for bloqueada, ignora o erro e começa no modo claro
+    }
+  });
   
   const [currentViewMonth, setCurrentViewMonth] = useState(getRealTodayString());
   
@@ -69,11 +76,22 @@ export default function App() {
 
   const [paymentForm, setPaymentForm] = useState({ monthsToPay: 1, discount: 0 });
 
-  // ESTADOS DO LOGIN POR EMAIL/SENHA
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [isAuthProcessing, setIsAuthProcessing] = useState(false);
+
+  // EFEITO DO MODO ESCURO COM PROTEÇÃO
+  useEffect(() => {
+    const htmlElement = document.documentElement;
+    if (isDarkMode) {
+      htmlElement.classList.add('dark');
+      try { localStorage.setItem('themeMode', 'dark'); } catch(e) {}
+    } else {
+      htmlElement.classList.remove('dark');
+      try { localStorage.setItem('themeMode', 'light'); } catch(e) {}
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -110,7 +128,6 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // FUNÇÃO DE LOGIN EXCLUSIVO POR EMAIL E SENHA
   const handleEmailAuth = async (e) => {
     e.preventDefault();
     setAuthError('');
