@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Search, Edit2, Trash2, DollarSign, 
-  Users, Calendar, Tv, LogOut,
+  Users, Calendar, Tv, LogOut, Lock, Mail,
   AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff, RotateCcw,
   Moon, Sun
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
-// Trazendo de volta o signInWithPopup e mantendo o Redirect como fallback
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'firebase/auth';
+// REMOVIDO: createUserWithEmailAndPassword para ninguém poder criar conta pela app
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -24,9 +24,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
-// Forçar sempre a seleção da conta para evitar loops infinitos
-googleProvider.setCustomParameters({ prompt: 'select_account' });
 const appId = 'sgc-gerenciamento-clientes';
 
 const getRealTodayString = () => {
@@ -72,12 +69,13 @@ export default function App() {
 
   const [paymentForm, setPaymentForm] = useState({ monthsToPay: 1, discount: 0 });
 
-  useEffect(() => {
-    // Processar o resultado de um redirecionamento, se houver
-    getRedirectResult(auth).catch((error) => {
-      console.error("Erro no redirecionamento:", error);
-    });
+  // ESTADOS DO LOGIN POR EMAIL/SENHA
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthProcessing, setIsAuthProcessing] = useState(false);
 
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setIsAuthLoading(false);
@@ -112,25 +110,25 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // LOGIN ROBUSTO PARA SAFARI
-  const handleLogin = async () => {
+  // FUNÇÃO DE LOGIN EXCLUSIVO POR EMAIL E SENHA
+  const handleEmailAuth = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setIsAuthProcessing(true);
+
     try {
-      // Tenta usar o pop-up primeiro (mais rápido, funciona em Android/PC/Canvas)
-      await signInWithPopup(auth, googleProvider);
+      await signInWithEmailAndPassword(auth, authEmail, authPassword);
     } catch (error) {
-      // Se falhar (ex: Safari bloqueou o popup), faz o redirect forçado
-      if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.message.includes('popup')) {
-        console.log("Popup bloqueado, tentando redirecionamento...");
-        try {
-          await signInWithRedirect(auth, googleProvider);
-        } catch (redirectError) {
-           console.error("Erro no redirecionamento:", redirectError);
-           alert("Houve um erro. Certifique-se de que não está num modo de navegação privada/anónima.");
-        }
+      console.error("Erro na autenticação:", error);
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        setAuthError('E-mail ou senha incorretos.');
+      } else if (error.code === 'auth/invalid-email') {
+        setAuthError('Formato de e-mail inválido.');
       } else {
-        console.error("Erro ao fazer login:", error);
-        alert("Não foi possível iniciar sessão. Tente novamente.");
+        setAuthError('Erro ao autenticar. Verifique os seus dados.');
       }
+    } finally {
+      setIsAuthProcessing(false);
     }
   };
 
@@ -138,6 +136,8 @@ export default function App() {
     try {
       await signOut(auth);
       setIsConfigModalOpen(false);
+      setAuthEmail('');
+      setAuthPassword('');
     } catch (error) {
       console.error("Erro ao sair", error);
     }
@@ -495,6 +495,7 @@ export default function App() {
     );
   }
 
+  // TELA DE LOGIN COM EMAIL E SENHA (SEM REGISTO)
   if (!user) {
     return (
       <div className={`${isDarkMode ? 'dark' : ''}`}>
@@ -516,20 +517,57 @@ export default function App() {
             <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white leading-tight mb-2 tracking-tight">
               App Cloud
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm px-4">Faça login com a sua conta Google para aceder à gestão de clientes de forma segura.</p>
+            <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm px-4">
+              Acesse a sua conta restrita para gerenciar os seus clientes.
+            </p>
+
+            {authError && (
+              <div className="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm p-3 rounded-xl mb-4 border border-red-100 dark:border-red-500/20">
+                {authError}
+              </div>
+            )}
             
-            <button 
-              onClick={handleLogin}
-              className="w-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-white px-4 py-4 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-600 transition active:scale-95 flex items-center justify-center gap-3 shadow-sm"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              Entrar com o Google
-            </button>
+            <form onSubmit={handleEmailAuth} className="w-full space-y-4">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-slate-400" />
+                </div>
+                <input 
+                  type="email" 
+                  required
+                  placeholder="Seu e-mail"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 border border-slate-200 dark:border-slate-600 rounded-2xl focus:ring-2 focus:ring-blue-500 bg-slate-50 dark:bg-slate-900 outline-none text-slate-800 dark:text-white transition-colors"
+                />
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-slate-400" />
+                </div>
+                <input 
+                  type="password" 
+                  required
+                  placeholder="Sua senha"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 border border-slate-200 dark:border-slate-600 rounded-2xl focus:ring-2 focus:ring-blue-500 bg-slate-50 dark:bg-slate-900 outline-none text-slate-800 dark:text-white transition-colors"
+                />
+              </div>
+
+              <button 
+                type="submit"
+                disabled={isAuthProcessing}
+                className="w-full bg-blue-600 text-white px-4 py-4 rounded-2xl font-bold hover:bg-blue-700 transition active:scale-95 shadow-md shadow-blue-200 dark:shadow-none flex justify-center items-center gap-2 mt-2"
+              >
+                {isAuthProcessing ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  'Entrar'
+                )}
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -583,12 +621,9 @@ export default function App() {
               <Bell size={20} />
             </button>
             
+            {/* FOTO DE PERFIL / USER ICON */}
             <button onClick={() => setIsConfigModalOpen(true)} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition active:scale-95 overflow-hidden flex items-center justify-center">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="Perfil" className="w-full h-full object-cover" />
-              ) : (
-                <User size={20} />
-              )}
+               <User size={20} />
             </button>
           </div>
         </div>
@@ -1106,8 +1141,10 @@ export default function App() {
               
               <div className="flex-1 overflow-y-auto space-y-6">
                 <div className="flex flex-col items-center bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 transition-colors">
-                  <img src={user.photoURL} alt="Foto de Perfil" className="w-16 h-16 rounded-full mb-3 shadow-md" />
-                  <p className="font-bold text-slate-800 dark:text-white">{user.displayName || "Usuário"}</p>
+                  <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-full mb-3 flex items-center justify-center shadow-sm border border-blue-200 dark:border-blue-800">
+                    <User size={32} />
+                  </div>
+                  <p className="font-bold text-slate-800 dark:text-white">Conta Admin</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{user.email}</p>
                 </div>
 
