@@ -4,7 +4,7 @@ import {
   Users, Calendar, Tv, LogOut, Lock, Mail,
   AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff, RotateCcw,
-  Moon, Sun, Copy
+  Moon, Sun, Copy, Info
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -61,7 +61,8 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
 
-  // NOVO: Estados para o Recibo de Sucesso
+  // ESTADOS DO FLUXO DE PAGAMENTO
+  const [isConfirmPaymentOpen, setIsConfirmPaymentOpen] = useState(false);
   const [paymentReceipt, setPaymentReceipt] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -429,6 +430,7 @@ export default function App() {
     } catch (err) {}
   };
 
+  // ABRE O MODAL PARA PREENCHER OS DADOS DE PAGAMENTO
   const handleOpenPaymentModal = (client) => {
     setPayingClient(client);
     setPaymentForm({ monthsToPay: 1, discount: 0 });
@@ -440,8 +442,14 @@ export default function App() {
     setPayingClient(null);
   };
 
-  const handleConfirmPayment = async (e) => {
+  // QUANDO CLICA EM "CONFIRMAR PAGAMENTO" NO MODAL PRINCIPAL (Abre o Pop-up de Certeza)
+  const handleRequestConfirmPayment = (e) => {
     e.preventDefault();
+    setIsConfirmPaymentOpen(true);
+  };
+
+  // A AÇÃO REAL QUE GUARDA NA BASE DE DADOS
+  const executePayment = async () => {
     if (!payingClient || !user) return;
 
     const monthsToAdd = Number(paymentForm.monthsToPay);
@@ -487,10 +495,13 @@ export default function App() {
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', payingClient.id);
       await updateDoc(docRef, updatedData);
       
-      // CONFIGURAR OS DADOS PARA O RECIBO E ABRIR O MODAL DE SUCESSO
       const nextDateObj = new Date(year, month - 1);
       const nextMonthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(nextDateObj);
       
+      setIsConfirmPaymentOpen(false); // Fecha Confirmação
+      handleClosePaymentModal(); // Fecha Modal do valor
+      
+      // Abre Modal de Sucesso
       setPaymentReceipt({
         clientName: payingClient.name,
         months: monthsToAdd,
@@ -498,13 +509,11 @@ export default function App() {
         nextMonthName: nextMonthName
       });
       
-      handleClosePaymentModal();
     } catch (err) {
       console.error("Erro ao registar pagamento:", err);
     }
   };
 
-  // FUNÇÃO PARA COPIAR A MENSAGEM DO RECIBO
   const handleCopyReceipt = () => {
     if (!paymentReceipt) return;
     
@@ -1155,7 +1164,8 @@ export default function App() {
               <button onClick={handleClosePaymentModal} className="p-1.5 text-blue-200 hover:text-white bg-blue-500/50 rounded-full transition"><X size={18} /></button>
             </div>
             
-            <form onSubmit={handleConfirmPayment} className="p-6">
+            {/* AGORA O FORM SUBMETE PARA ABRIR A CONFIRMAÇÃO (handleRequestConfirmPayment) */}
+            <form onSubmit={handleRequestConfirmPayment} className="p-6">
               <div className="space-y-4">
                 <div>
                   <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Quantos meses está a pagar?</label>
@@ -1193,14 +1203,46 @@ export default function App() {
               </div>
               
               <button type="submit" className="w-full mt-6 bg-blue-600 text-white px-4 py-4 rounded-2xl font-bold hover:bg-blue-700 transition active:scale-95 flex items-center justify-center gap-2">
-                <CheckCircle size={20} /> Confirmar Pagamento
+                Prosseguir para Confirmação
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* 5. NOVO MODAL: RECIBO DE SUCESSO */}
+      {/* 4.5. NOVO MODAL: CONFIRMAR PAGAMENTO ANTES DE EXECUTAR */}
+      {isConfirmPaymentOpen && payingClient && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[75] flex items-center justify-center p-4">
+          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6 transition-colors text-center ${t('bg-white', 'bg-slate-800')}`}>
+            
+            <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 ${t('bg-blue-100 text-blue-600', 'bg-blue-500/20 text-blue-400')}`}>
+              <Info size={40} strokeWidth={2.5} />
+            </div>
+            
+            <h2 className={`text-xl font-extrabold mb-2 ${t('text-slate-800', 'text-white')}`}>Confirmar Recebimento?</h2>
+            <p className={`text-sm mb-6 ${t('text-slate-500', 'text-slate-400')}`}>
+              Deseja confirmar o registo do pagamento no valor de <strong>{formatCurrency(Math.max(0, ((Number(payingClient.customValue) || globalUnitValue) * (Number(payingClient.subscriptions) || 1) * paymentForm.monthsToPay) - paymentForm.discount))}</strong> referente a <strong>{paymentForm.monthsToPay} mês(es)</strong> para o cliente <strong>{payingClient.name}</strong>?
+            </p>
+
+            <div className="flex gap-3 w-full">
+              <button 
+                onClick={() => setIsConfirmPaymentOpen(false)} 
+                className={`flex-1 py-3.5 font-bold rounded-2xl transition active:scale-95 ${t('bg-slate-100 text-slate-600 hover:bg-slate-200', 'bg-slate-700 text-slate-300 hover:bg-slate-600')}`}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={executePayment} 
+                className={`flex-1 py-3.5 text-white font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 ${t('bg-blue-600 hover:bg-blue-700', 'bg-blue-600 hover:bg-blue-500')}`}
+              >
+                <CheckCircle size={18}/> Sim, Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. MODAL: RECIBO DE SUCESSO (Aparece depois do executePayment) */}
       {paymentReceipt && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
           <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6 transition-colors text-center ${t('bg-white', 'bg-slate-800')}`}>
@@ -1209,8 +1251,8 @@ export default function App() {
               <CheckCircle size={40} strokeWidth={2.5} />
             </div>
             
-            <h2 className={`text-xl font-extrabold mb-1 ${t('text-slate-800', 'text-white')}`}>Pagamento Concluído!</h2>
-            <p className={`text-sm mb-6 ${t('text-slate-500', 'text-slate-400')}`}>A renovação foi registada com sucesso.</p>
+            <h2 className={`text-xl font-extrabold mb-1 ${t('text-slate-800', 'text-white')}`}>Pagamento Registado!</h2>
+            <p className={`text-sm mb-6 ${t('text-slate-500', 'text-slate-400')}`}>A renovação de {paymentReceipt.clientName} foi concluída com sucesso.</p>
 
             <div className={`text-left p-4 rounded-2xl border mb-6 text-sm whitespace-pre-wrap leading-relaxed ${t('bg-slate-50 border-slate-200 text-slate-700', 'bg-slate-900 border-slate-700 text-slate-300')}`}>
               Olá <strong>{paymentReceipt.clientName}</strong>, tudo bem? 🚀<br/>
