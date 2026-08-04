@@ -4,7 +4,7 @@ import {
   Users, Calendar, Tv, LogOut, Lock, Mail,
   AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff, RotateCcw,
-  Moon, Sun
+  Moon, Sun, Copy
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -48,7 +48,6 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL'); 
   
-  // LÓGICA DE MEMÓRIA DO MODO ESCURO (À prova de bloqueios de navegador)
   const [isDarkMode, setIsDarkMode] = useState(() => {
     try { return localStorage.getItem('themeMode') === 'dark'; } 
     catch (e) { return false; }
@@ -61,6 +60,10 @@ export default function App() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
+
+  // NOVO: Estados para o Recibo de Sucesso
+  const [paymentReceipt, setPaymentReceipt] = useState(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   const [editingClient, setEditingClient] = useState(null);
   const [payingClient, setPayingClient] = useState(null);
@@ -77,7 +80,6 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [isAuthProcessing, setIsAuthProcessing] = useState(false);
 
-  // EFEITO DE COR DO MODO ESCURO NA RAIZ (Resolve a "bordinha" do iPhone)
   useEffect(() => {
     let metaThemeColor = document.querySelector("meta[name=theme-color]");
     if (!metaThemeColor) {
@@ -87,17 +89,16 @@ export default function App() {
     }
     
     if (isDarkMode) {
-      document.body.style.backgroundColor = '#0f172a'; // Fundo noturno no iPhone
+      document.body.style.backgroundColor = '#0f172a';
       metaThemeColor.content = '#0f172a';
       try { localStorage.setItem('themeMode', 'dark'); } catch(e) {}
     } else {
-      document.body.style.backgroundColor = '#f8fafc'; // Fundo claro nativo
+      document.body.style.backgroundColor = '#f8fafc';
       metaThemeColor.content = '#f8fafc';
       try { localStorage.setItem('themeMode', 'light'); } catch(e) {}
     }
   }, [isDarkMode]);
 
-  // FUNÇÃO MÁGICA: APLICA AS CORES MESMO SE O TAILWIND FALHAR
   const t = (lightClass, darkClass) => isDarkMode ? darkClass : lightClass;
 
   useEffect(() => {
@@ -485,8 +486,42 @@ export default function App() {
     try {
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', payingClient.id);
       await updateDoc(docRef, updatedData);
+      
+      // CONFIGURAR OS DADOS PARA O RECIBO E ABRIR O MODAL DE SUCESSO
+      const nextDateObj = new Date(year, month - 1);
+      const nextMonthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(nextDateObj);
+      
+      setPaymentReceipt({
+        clientName: payingClient.name,
+        months: monthsToAdd,
+        dueDate: payingClient.dueDate,
+        nextMonthName: nextMonthName
+      });
+      
       handleClosePaymentModal();
-    } catch (err) {}
+    } catch (err) {
+      console.error("Erro ao registar pagamento:", err);
+    }
+  };
+
+  // FUNÇÃO PARA COPIAR A MENSAGEM DO RECIBO
+  const handleCopyReceipt = () => {
+    if (!paymentReceipt) return;
+    
+    const message = `Olá *${paymentReceipt.clientName}*, tudo bem? 🚀\nO seu pagamento foi recebido e a renovação de *${paymentReceipt.months} mês(es)* foi concluída com sucesso! Muito obrigado!\n\n📅 O seu próximo vencimento será no *dia ${paymentReceipt.dueDate} de ${paymentReceipt.nextMonthName}*.\n\nQualquer dúvida, estamos à disposição!`;
+    
+    const textArea = document.createElement("textarea");
+    textArea.value = message;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2500);
+    } catch (err) {
+      console.error('Erro ao copiar', err);
+    }
+    document.body.removeChild(textArea);
   };
 
   const handleUndoPayment = async (client, recordId) => {
@@ -922,6 +957,8 @@ export default function App() {
       )}
 
       {/* MODAIS */}
+      
+      {/* 1. NOTIFICAÇÕES */}
       {isNotificationsOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-end sm:items-center justify-center p-4">
           <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 flex flex-col transition-colors ${t('bg-white', 'bg-slate-800')}`}>
@@ -970,6 +1007,7 @@ export default function App() {
         </div>
       )}
 
+      {/* 2. CONFIRMAR DESATIVAÇÃO */}
       {clientToDelete && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
           <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6 transition-colors ${t('bg-white', 'bg-slate-800')}`}>
@@ -995,6 +1033,7 @@ export default function App() {
         </div>
       )}
 
+      {/* 3. MODAL DE EDIÇÃO DE CLIENTE */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
           <div className={`w-full sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 flex flex-col max-h-[90vh] transition-colors ${t('bg-white', 'bg-slate-800')}`}>
@@ -1104,6 +1143,7 @@ export default function App() {
         </div>
       )}
 
+      {/* 4. MODAL DE REGISTO DE PAGAMENTO */}
       {isPaymentModalOpen && payingClient && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden transition-colors ${t('bg-white', 'bg-slate-800')}`}>
@@ -1160,6 +1200,50 @@ export default function App() {
         </div>
       )}
 
+      {/* 5. NOVO MODAL: RECIBO DE SUCESSO */}
+      {paymentReceipt && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6 transition-colors text-center ${t('bg-white', 'bg-slate-800')}`}>
+            
+            <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 ${t('bg-emerald-100 text-emerald-500', 'bg-emerald-500/20 text-emerald-400')}`}>
+              <CheckCircle size={40} strokeWidth={2.5} />
+            </div>
+            
+            <h2 className={`text-xl font-extrabold mb-1 ${t('text-slate-800', 'text-white')}`}>Pagamento Concluído!</h2>
+            <p className={`text-sm mb-6 ${t('text-slate-500', 'text-slate-400')}`}>A renovação foi registada com sucesso.</p>
+
+            <div className={`text-left p-4 rounded-2xl border mb-6 text-sm whitespace-pre-wrap leading-relaxed ${t('bg-slate-50 border-slate-200 text-slate-700', 'bg-slate-900 border-slate-700 text-slate-300')}`}>
+              Olá <strong>{paymentReceipt.clientName}</strong>, tudo bem? 🚀<br/>
+              O seu pagamento foi recebido e a renovação de <strong>{paymentReceipt.months} mês(es)</strong> foi concluída com sucesso! Muito obrigado!<br/><br/>
+              📅 O seu próximo vencimento será no <strong>dia {paymentReceipt.dueDate} de {paymentReceipt.nextMonthName}</strong>.<br/><br/>
+              Qualquer dúvida, estamos à disposição!
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={handleCopyReceipt}
+                className={`w-full py-4 font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 ${
+                  isCopied 
+                  ? t('bg-emerald-500 text-white', 'bg-emerald-600 text-white') 
+                  : t('bg-blue-600 text-white hover:bg-blue-700', 'bg-blue-600 text-white hover:bg-blue-700')
+                }`}
+              >
+                {isCopied ? <CheckCircle size={18} /> : <Copy size={18} />}
+                {isCopied ? 'Mensagem Copiada!' : 'Copiar para Enviar'}
+              </button>
+              
+              <button 
+                onClick={() => setPaymentReceipt(null)}
+                className={`w-full py-3.5 font-bold rounded-2xl transition active:scale-95 ${t('bg-slate-100 text-slate-600 hover:bg-slate-200', 'bg-slate-700 text-slate-300 hover:bg-slate-600')}`}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. MODAL DE CONFIGURAÇÕES */}
       {isConfigModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 p-6 flex flex-col max-h-[90vh] transition-colors ${t('bg-white', 'bg-slate-800')}`}>
