@@ -1,4 +1,3 @@
-```react
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Search, Edit2, Trash2, DollarSign, 
@@ -1289,4 +1288,3 @@ export default function App() {
 }
 
 
-```
