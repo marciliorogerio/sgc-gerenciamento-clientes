@@ -41,7 +41,7 @@ const formatMonthYear = (dateString) => {
 // Nova Função Auxiliar para Copiar Textos
 const copyToClipboard = (text, onSuccess) => {
   if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text).then(onSuccess);
+    navigator.clipboard.writeText(text).then(onSuccess).catch(()=>{});
   } else {
     const textArea = document.createElement("textarea");
     textArea.value = text;
@@ -65,7 +65,28 @@ const formatMAC = (val) => {
   return parts ? parts.join(':') : '';
 };
 
-export default function App() {
+// Escudo Anti-Crash (Impede a temida tela escura)
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-900 text-white">
+          <AlertTriangle size={64} className="text-red-500 mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Ops! Algo deu errado.</h1>
+          <p className="text-slate-400 mb-6 text-center text-sm">Um erro inesperado aconteceu, mas os seus dados estão a salvo.</p>
+          <button onClick={() => window.location.reload()} className="bg-blue-600 px-6 py-3 rounded-xl font-bold flex items-center gap-2">
+            <RotateCcw size={18} /> Recarregar Aplicação
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function MainApp() {
   const [user, setUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isDataLoading, setIsDataLoading] = useState(false);
@@ -227,8 +248,12 @@ export default function App() {
       };
     }
 
+    let nextPaymentStr = client.nextPayment || getRealTodayString();
+    let parts = nextPaymentStr.split('-');
+    const nextYear = parts.length === 2 ? Number(parts[0]) : new Date().getFullYear();
+    const nextMonth = parts.length === 2 ? Number(parts[1]) : new Date().getMonth() + 1;
+
     const [viewYear, viewMonth] = viewMonthStr.split('-').map(Number);
-    const [nextYear, nextMonth] = (client.nextPayment || getRealTodayString()).split('-').map(Number);
     const [realYear, realMonth] = getRealTodayString().split('-').map(Number);
     
     const viewAbsMonth = viewYear * 12 + viewMonth;
@@ -239,7 +264,7 @@ export default function App() {
     today.setHours(0, 0, 0, 0);
     const realDay = today.getDate();
 
-    let dueDay = client.dueDate;
+    let dueDay = Number(client.dueDate) || 1;
     const daysInViewMonth = new Date(viewYear, viewMonth, 0).getDate();
     if (dueDay > daysInViewMonth) dueDay = daysInViewMonth;
 
@@ -247,7 +272,7 @@ export default function App() {
     if (nextAbsMonth < realAbsMonth) {
       isStrictlyOverdueRightNow = true;
     } else if (nextAbsMonth === realAbsMonth) {
-      let realDueDay = client.dueDate;
+      let realDueDay = Number(client.dueDate) || 1;
       const daysInRealMonth = new Date(realYear, realMonth, 0).getDate();
       if (realDueDay > daysInRealMonth) realDueDay = daysInRealMonth;
       if (realDueDay < realDay) {
@@ -494,7 +519,7 @@ export default function App() {
     setPayingClient(client);
     setPaymentForm({ monthsToPay: 1, discount: 0 });
     setIsPaymentModalOpen(true);
-    setViewingClient(null);
+    setViewingClient(null); // Fecha o modal de detalhes para não encavalar
   };
 
   const handleClosePaymentModal = () => {
@@ -506,51 +531,72 @@ export default function App() {
     e.preventDefault();
     if (!payingClient || !user) return;
 
-    const monthsToAdd = Number(paymentForm.monthsToPay);
-    const discount = Number(paymentForm.discount);
-    
-    const subtotal = (Number(payingClient.customValue) || globalUnitValue) * (Number(payingClient.subscriptions) || 1) * monthsToAdd;
-    const totalPaid = Math.max(0, subtotal - discount);
-
-    let [currentNextYear, currentNextMonth] = (payingClient.nextPayment || getRealTodayString()).split('-').map(Number);
-    let paidMonthsLabels = [];
-    
-    for (let i = 0; i < monthsToAdd; i++) {
-        let m = currentNextMonth + i;
-        let y = currentNextYear;
-        while (m > 12) { m -= 12; y += 1; }
-        const dateObj = new Date(y, m - 1);
-        paidMonthsLabels.push(new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' }).format(dateObj));
-    }
-
-    const newPaymentRecord = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      monthOfReceipt: currentViewMonth,
-      monthsPaid: monthsToAdd,
-      amount: totalPaid,
-      discount: discount,
-      refMonths: paidMonthsLabels.join(', ')
-    };
-
-    let [year, month] = (payingClient.nextPayment || getRealTodayString()).split('-').map(Number);
-    month += monthsToAdd;
-    while (month > 12) { month -= 12; year += 1; }
-    const nextPaymentStr = `${year}-${String(month).padStart(2, '0')}`;
-    const currentHistory = payingClient.paymentHistory || [];
-
-    const updatedData = {
-      nextPayment: nextPaymentStr,
-      paidMonths: (Number(payingClient.paidMonths) || 0) + monthsToAdd,
-      paymentHistory: [newPaymentRecord, ...currentHistory]
-    };
-
     try {
+      const monthsToAdd = Number(paymentForm.monthsToPay);
+      const discount = Number(paymentForm.discount);
+      
+      const subtotal = (Number(payingClient.customValue) || globalUnitValue) * (Number(payingClient.subscriptions) || 1) * monthsToAdd;
+      const totalPaid = Math.max(0, subtotal - discount);
+
+      // CORREÇÃO SEGURA DE DATA AQUI
+      let currentNextYear = new Date().getFullYear();
+      let currentNextMonth = new Date().getMonth() + 1;
+
+      let nextPaymentStrOrigin = payingClient.nextPayment || getRealTodayString();
+      if (nextPaymentStrOrigin && nextPaymentStrOrigin.includes('-')) {
+         const parts = nextPaymentStrOrigin.split('-');
+         currentNextYear = Number(parts[0]);
+         currentNextMonth = Number(parts[1]);
+      }
+      
+      let paidMonthsLabels = [];
+      
+      for (let i = 0; i < monthsToAdd; i++) {
+          let m = currentNextMonth + i;
+          let y = currentNextYear;
+          while (m > 12) { m -= 12; y += 1; }
+          try {
+            const dateObj = new Date(y, m - 1);
+            paidMonthsLabels.push(new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' }).format(dateObj));
+          } catch(e) {
+            paidMonthsLabels.push(`${m}/${y}`);
+          }
+      }
+
+      const newPaymentRecord = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        monthOfReceipt: currentViewMonth,
+        monthsPaid: monthsToAdd,
+        amount: totalPaid,
+        discount: discount,
+        refMonths: paidMonthsLabels.join(', ')
+      };
+
+      let year = currentNextYear;
+      let month = currentNextMonth;
+      month += monthsToAdd;
+      while (month > 12) { month -= 12; year += 1; }
+      const nextPaymentStr = `${year}-${String(month).padStart(2, '0')}`;
+      const currentHistory = payingClient.paymentHistory || [];
+
+      const updatedData = {
+        nextPayment: nextPaymentStr,
+        paidMonths: (Number(payingClient.paidMonths) || 0) + monthsToAdd,
+        paymentHistory: [newPaymentRecord, ...currentHistory]
+      };
+
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', payingClient.id);
       await updateDoc(docRef, updatedData);
       
-      const nextDateObj = new Date(year, month - 1);
-      const nextMonthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(nextDateObj);
+      // GERA O NOME DO MÊS DE FORMA SEGURA
+      let nextMonthName = "";
+      try {
+        const nextDateObj = new Date(year, month - 1);
+        nextMonthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(nextDateObj);
+      } catch(e) {
+        nextMonthName = `${month}/${year}`;
+      }
       
       handleClosePaymentModal();
       
@@ -561,7 +607,10 @@ export default function App() {
         nextMonthName: nextMonthName
       });
       
-    } catch (err) {}
+    } catch (err) {
+      console.error("Erro ao confirmar:", err);
+      alert("Houve um erro ao registar o pagamento.");
+    }
   };
 
   const handleUndoPayment = async (client, recordId) => {
@@ -596,6 +645,15 @@ export default function App() {
           setViewingClient(prev => ({ ...prev, nextPayment: revertedNextPaymentStr, paidMonths: newPaidMonths, paymentHistory: newHistory }));
       }
     } catch (err) {}
+  };
+
+  const handleCopyReceipt = () => {
+    if (!paymentReceipt) return;
+    const message = `Olá *${paymentReceipt.clientName}*, tudo bem? 🚀\nO seu pagamento foi recebido e a renovação de *${paymentReceipt.months} mês(es)* foi concluída com sucesso! Muito obrigado!\n\n📅 O seu próximo vencimento será no *dia ${paymentReceipt.dueDate} de ${paymentReceipt.nextMonthName}*.\n\nQualquer dúvida, estamos à disposição!`;
+    copyToClipboard(message, () => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2500);
+    });
   };
 
   // Funções para Servidores
@@ -635,7 +693,13 @@ export default function App() {
   };
 
   const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  const formatDate = (dateString) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(dateString));
+  const formatDate = (dateString) => {
+    try {
+      return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(dateString));
+    } catch(e) {
+      return "";
+    }
+  };
 
   if (isAuthLoading) {
     return (
@@ -910,7 +974,7 @@ export default function App() {
               </div>
               <div className="flex mt-2">
                 <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border flex items-center gap-1.5 ${viewingClient.paymentStatus.color}`}>
-                  <viewingClient.paymentStatus.icon size={14} />
+                  {React.createElement(viewingClient.paymentStatus.icon, { size: 14 })}
                   {viewingClient.paymentStatus.label}
                 </span>
               </div>
@@ -948,7 +1012,6 @@ export default function App() {
                       <div className={`font-mono text-sm px-3 py-2 rounded-lg font-bold flex items-center justify-between ${t('bg-white border border-slate-200 text-slate-700', 'bg-slate-800 border border-slate-600 text-slate-200')}`}>
                         <span className="flex items-center gap-2"><Cpu size={16} className={t('text-slate-400','text-slate-500')}/> {viewingClient.appMac}</span>
                         
-                        {/* Botão de Copiar MAC */}
                         <button onClick={handleCopyMac} className={`p-1.5 rounded-md transition active:scale-95 ${t('hover:bg-slate-100 text-blue-600', 'hover:bg-slate-700 text-blue-400')}`} title="Copiar MAC">
                           {copiedMac ? <CheckCircle size={16} className={t('text-emerald-600', 'text-emerald-400')} /> : <Copy size={16} />}
                         </button>
@@ -1059,7 +1122,6 @@ export default function App() {
                         type="text" 
                         placeholder="Ex: F8:01:B4..." 
                         value={formData.appMac} 
-                        // Aplica a Máscara Automática aqui!
                         onChange={(e) => setFormData({...formData, appMac: formatMAC(e.target.value)})} 
                         className={`w-full font-mono font-bold px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors tracking-widest ${t('bg-white border-slate-200 text-slate-800', 'bg-slate-800 border-slate-600 text-slate-200')}`} 
                       />
@@ -1102,43 +1164,7 @@ export default function App() {
         </div>
       )}
 
-      {/* NOTIFICAÇÕES, DESATIVAR E PAGAMENTO AQUI (MANTIDOS E OCULTOS PARA RESUMO DO ESPAÇO) */}
-      
-      {isNotificationsOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-end sm:items-center justify-center p-4">
-          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 flex flex-col transition-colors ${t('bg-white', 'bg-slate-800')}`}>
-            <div className={`px-6 py-5 border-b flex justify-between items-center shrink-0 ${t('bg-white border-slate-100', 'bg-slate-800 border-slate-700')}`}>
-              <h2 className={`text-xl font-bold flex items-center gap-2 ${t('text-slate-800', 'text-white')}`}><Bell size={20} className="text-slate-400"/> Notificações</h2>
-              <button type="button" onClick={() => setIsNotificationsOpen(false)} className={`p-2 rounded-full transition ${t('text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100', 'text-slate-400 hover:text-slate-200 bg-slate-700 hover:bg-slate-600')}`}><X size={20} /></button>
-            </div>
-            
-            <div className="p-6">
-              {hasNotifications ? (
-                <div className="flex flex-col gap-3">
-                  {stats.today > 0 && (
-                    <div onClick={() => { setFilterType('TODAY'); setIsNotificationsOpen(false); }} className={`cursor-pointer p-4 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition border ${t('bg-orange-50 border-orange-100 text-orange-800 hover:bg-orange-100', 'bg-orange-500/10 border-orange-500/20 text-orange-400 hover:bg-orange-500/20')}`}>
-                      <AlertTriangle size={24} className="text-orange-500 shrink-0" />
-                      <div><h4 className="font-bold">Atenção para Hoje</h4><p className="text-sm opacity-90">Você tem {stats.today} cliente(s) a vencer hoje.</p></div>
-                    </div>
-                  )}
-                  {stats.overdue > 0 && (
-                    <div onClick={() => { setFilterType('OVERDUE'); setIsNotificationsOpen(false); }} className={`cursor-pointer p-4 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition border ${t('bg-red-50 border-red-100 text-red-800 hover:bg-red-100', 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20')}`}>
-                      <AlertCircle size={24} className="text-red-500 shrink-0" />
-                      <div><h4 className="font-bold">Pagamentos em Atraso</h4><p className="text-sm opacity-90">{stats.overdue} cliente(s) com mensalidade vencida.</p></div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className={`text-center py-6 ${t('text-slate-500', 'text-slate-400')}`}>
-                  <CheckCircle size={40} className="mx-auto mb-3 text-emerald-400 opacity-80" />
-                  <p className={`font-medium ${t('text-slate-700', 'text-slate-300')}`}>Tudo limpo por aqui!</p>
-                  <p className="text-sm mt-1">Nenhum aviso no momento.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* NOTIFICAÇÕES E DESATIVAR OCULTOS PARA RESUMO DO ESPAÇO */}
 
       {isPaymentModalOpen && payingClient && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
@@ -1218,7 +1244,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 6. MODAL DE PERFIL / CONFIGURAÇÕES E SERVIDORES */}
       {isConfigModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className={`w-full max-w-md rounded-[2rem] shadow-2xl animate-in zoom-in-95 p-6 flex flex-col max-h-[90vh] transition-colors ${t('bg-white', 'bg-slate-800')}`}>
@@ -1239,11 +1264,8 @@ export default function App() {
                 <input type="number" step="0.01" value={globalUnitValue} onChange={(e) => setGlobalUnitValue(Number(e.target.value))} className={`w-full px-4 py-4 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-xl font-bold transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
               </div>
 
-              {/* NOVA SEÇÃO: SERVIDORES */}
               <div className={`pt-6 border-t ${t('border-slate-100', 'border-slate-700')}`}>
                 <h3 className={`font-bold mb-4 flex items-center gap-2 ${t('text-slate-800', 'text-white')}`}><Server size={18} /> Servidores / Links</h3>
-                
-                {/* Lista de Servidores */}
                 <div className="space-y-3 mb-4">
                   {servers.length === 0 ? (
                     <p className={`text-sm text-center py-2 ${t('text-slate-400', 'text-slate-500')}`}>Nenhum servidor guardado.</p>
@@ -1255,33 +1277,21 @@ export default function App() {
                           <p className={`text-xs truncate ${t('text-blue-500', 'text-blue-400')}`}>{server.url}</p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          <button 
-                            onClick={() => handleCopyServer(server.url, server.id)} 
-                            className={`p-2 rounded-lg transition active:scale-95 ${t('bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600', 'bg-slate-900 hover:bg-slate-700 text-slate-400 hover:text-blue-400')}`}
-                          >
+                          <button onClick={() => handleCopyServer(server.url, server.id)} className={`p-2 rounded-lg transition active:scale-95 ${t('bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600', 'bg-slate-900 hover:bg-slate-700 text-slate-400 hover:text-blue-400')}`}>
                             {copiedServerId === server.id ? <CheckCircle size={16} className={t('text-emerald-500', 'text-emerald-400')} /> : <Copy size={16} />}
                           </button>
-                          <button 
-                            onClick={() => handleDeleteServer(server.id)} 
-                            className={`p-2 rounded-lg transition active:scale-95 ${t('bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-500', 'bg-slate-900 hover:bg-slate-700 text-slate-400 hover:text-red-400')}`}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <button onClick={() => handleDeleteServer(server.id)} className={`p-2 rounded-lg transition active:scale-95 ${t('bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-500', 'bg-slate-900 hover:bg-slate-700 text-slate-400 hover:text-red-400')}`}><Trash2 size={16} /></button>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
-
-                {/* Form Adicionar Servidor */}
                 <form onSubmit={handleAddServer} className={`p-4 rounded-xl border space-y-3 ${t('bg-slate-50 border-slate-200', 'bg-slate-900 border-slate-700')}`}>
                   <p className={`text-xs font-bold uppercase tracking-widest ${t('text-slate-400', 'text-slate-500')}`}>Adicionar Novo Link</p>
                   <input type="text" placeholder="Nome (Ex: Servidor Principal)" value={newServerName} onChange={e => setNewServerName(e.target.value)} required className={`w-full px-3 py-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('bg-white border-slate-200 text-slate-800', 'bg-slate-800 border-slate-600 text-white')}`} />
                   <div className="flex gap-2">
                     <input type="url" placeholder="https://..." value={newServerUrl} onChange={e => setNewServerUrl(e.target.value)} required className={`flex-1 px-3 py-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('bg-white border-slate-200 text-slate-800', 'bg-slate-800 border-slate-600 text-white')}`} />
-                    <button type="submit" className={`px-4 py-2.5 text-white text-sm font-bold rounded-lg transition active:scale-95 ${t('bg-slate-800 hover:bg-slate-900', 'bg-blue-600 hover:bg-blue-700')}`}>
-                      <Plus size={18} />
-                    </button>
+                    <button type="submit" className={`px-4 py-2.5 text-white text-sm font-bold rounded-lg transition active:scale-95 ${t('bg-slate-800 hover:bg-slate-900', 'bg-blue-600 hover:bg-blue-700')}`}><Plus size={18} /></button>
                   </div>
                 </form>
               </div>
@@ -1300,5 +1310,13 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <MainApp />
+    </ErrorBoundary>
   );
 }
