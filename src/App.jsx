@@ -3,7 +3,7 @@ import {
   Plus, Search, Edit2, Trash2, DollarSign, 
   Users, Calendar, Tv, LogOut, Lock, Mail,
   AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
-  ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff, RotateCcw,
+  ChevronLeft, ChevronRight, X, Bell, User, Archive, Cloud, CloudOff, RotateCcw,
   Moon, Sun, Copy
 } from 'lucide-react';
 
@@ -61,7 +61,6 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
 
-  // Estados para o Recibo
   const [paymentReceipt, setPaymentReceipt] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -69,8 +68,9 @@ export default function App() {
   const [payingClient, setPayingClient] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   
+  // ADICIONADO: username no formData inicial
   const [formData, setFormData] = useState({
-    name: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: getRealTodayString(), customValue: 30, paymentHistory: [], notes: '', active: true
+    name: '', username: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: getRealTodayString(), customValue: 30, paymentHistory: [], notes: '', active: true
   });
 
   const [paymentForm, setPaymentForm] = useState({ monthsToPay: 1, discount: 0 });
@@ -80,26 +80,28 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [isAuthProcessing, setIsAuthProcessing] = useState(false);
 
+  // MODO ESCURO
   useEffect(() => {
+    const htmlElement = document.documentElement;
     let metaThemeColor = document.querySelector("meta[name=theme-color]");
     if (!metaThemeColor) {
       metaThemeColor = document.createElement("meta");
       metaThemeColor.name = "theme-color";
       document.head.appendChild(metaThemeColor);
     }
-    
+
     if (isDarkMode) {
+      htmlElement.classList.add('dark');
       document.body.style.backgroundColor = '#0f172a';
       metaThemeColor.content = '#0f172a';
       try { localStorage.setItem('themeMode', 'dark'); } catch(e) {}
     } else {
+      htmlElement.classList.remove('dark');
       document.body.style.backgroundColor = '#f8fafc';
       metaThemeColor.content = '#f8fafc';
       try { localStorage.setItem('themeMode', 'light'); } catch(e) {}
     }
   }, [isDarkMode]);
-
-  const t = (lightClass, darkClass) => isDarkMode ? darkClass : lightClass;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -180,7 +182,7 @@ export default function App() {
     if (client.active === false) {
       return { 
         status: 'ARCHIVED', label: 'Inativo', icon: Archive, urgency: 99, diffDays: 0,
-        color: t('text-slate-500 bg-slate-100 border-slate-200', 'text-slate-400 bg-slate-800 border-slate-700')
+        color: 'text-slate-500 bg-slate-100 border-slate-200 dark:text-slate-400 dark:bg-slate-800 dark:border-slate-700'
       };
     }
 
@@ -215,7 +217,7 @@ export default function App() {
     if (nextAbsMonth > viewAbsMonth) {
       return { 
         status: 'PAID', label: 'Em Dia', icon: CheckCircle, urgency: 4, diffDays: 0,
-        color: t('text-emerald-700 bg-emerald-100 border-emerald-200', 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20')
+        color: 'text-emerald-700 bg-emerald-100 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20'
       };
     }
 
@@ -228,30 +230,30 @@ export default function App() {
 
         if (diffDays < 0) return { 
           status: 'OVERDUE', label: `Vencido (${Math.abs(diffDays)}d)`, icon: AlertCircle, urgency: 1, diffDays,
-          color: t('text-red-700 bg-red-100 border-red-200', 'text-red-400 bg-red-500/10 border-red-500/20') 
+          color: 'text-red-700 bg-red-100 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20'
         };
         if (diffDays === 0) return { 
           status: 'TODAY', label: 'Vence Hoje!', icon: AlertTriangle, urgency: 2, diffDays,
-          color: t('text-orange-700 bg-orange-100 border-orange-200 animate-pulse', 'text-orange-400 bg-orange-500/10 border-orange-500/20 animate-pulse') 
+          color: 'text-orange-700 bg-orange-100 border-orange-200 animate-pulse dark:text-orange-400 dark:bg-orange-500/10 dark:border-orange-500/20'
         };
         if (diffDays <= 7) return { 
           status: 'SOON', label: `Vence em ${diffDays}d`, icon: Clock, urgency: 3, diffDays,
-          color: t('text-yellow-700 bg-yellow-100 border-yellow-200', 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20') 
+          color: 'text-yellow-700 bg-yellow-100 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-500/10 dark:border-yellow-500/20'
         };
         return { 
           status: 'PENDING', label: 'A Vencer', icon: Calendar, urgency: 3.5, diffDays,
-          color: t('text-blue-700 bg-blue-100 border-blue-200', 'text-blue-400 bg-blue-500/10 border-blue-500/20') 
+          color: 'text-blue-700 bg-blue-100 border-blue-200 dark:text-blue-400 dark:bg-blue-500/10 dark:border-blue-500/20'
         };
       } 
       else if (viewAbsMonth < realAbsMonth) {
          return { 
            status: 'OVERDUE', label: `Vencido`, icon: AlertCircle, urgency: 1, diffDays: -1,
-           color: t('text-red-700 bg-red-100 border-red-200', 'text-red-400 bg-red-500/10 border-red-500/20') 
+           color: 'text-red-700 bg-red-100 border-red-200 dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20'
          };
       } else {
          return { 
            status: 'PENDING', label: 'A Vencer', icon: Calendar, urgency: 3.5, diffDays: 10,
-           color: t('text-blue-700 bg-blue-100 border-blue-200', 'text-blue-400 bg-blue-500/10 border-blue-500/20') 
+           color: 'text-blue-700 bg-blue-100 border-blue-200 dark:text-blue-400 dark:bg-blue-500/10 dark:border-blue-500/20'
          };
       }
     }
@@ -260,19 +262,19 @@ export default function App() {
        if (isStrictlyOverdueRightNow) {
           return { 
             status: 'OVERDUE_MULTIPLE', label: 'Em Atraso', icon: AlertCircle, urgency: 0, diffDays: -30,
-            color: t('text-red-700 bg-red-100 border-red-200 font-bold', 'text-red-400 bg-red-500/10 border-red-500/20 font-bold') 
+            color: 'text-red-700 bg-red-100 border-red-200 font-bold dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20'
           };
        } else {
           return { 
             status: 'PENDING', label: 'A Vencer', icon: Calendar, urgency: 3.5, diffDays: 10,
-            color: t('text-blue-700 bg-blue-100 border-blue-200', 'text-blue-400 bg-blue-500/10 border-blue-500/20') 
+            color: 'text-blue-700 bg-blue-100 border-blue-200 dark:text-blue-400 dark:bg-blue-500/10 dark:border-blue-500/20'
           };
        }
     }
 
     return { 
       status: 'UNKNOWN', label: '?', icon: CheckCircle, urgency: 5, diffDays: 0,
-      color: t('text-gray-700 bg-gray-100', 'text-gray-400 bg-gray-800') 
+      color: 'text-gray-700 bg-gray-100 dark:text-gray-400 dark:bg-gray-800'
     };
   };
 
@@ -293,7 +295,12 @@ export default function App() {
     }
 
     if (searchTerm) {
-      list = list.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      const term = searchTerm.toLowerCase();
+      // ADICIONADO: Pesquisar também pelo username
+      list = list.filter(c => 
+        c.name.toLowerCase().includes(term) || 
+        (c.username && c.username.toLowerCase().includes(term))
+      );
     }
 
     list.sort((a, b) => {
@@ -304,7 +311,7 @@ export default function App() {
     });
 
     return list;
-  }, [clients, searchTerm, filterType, currentViewMonth, isDarkMode]);
+  }, [clients, searchTerm, filterType, currentViewMonth]);
 
   const stats = useMemo(() => {
     let overdue = 0; let today = 0; let soon = 0; let pending = 0; let paid = 0; 
@@ -337,7 +344,7 @@ export default function App() {
     });
 
     return { overdue, today, soon, pending, paid, activeSubs, expectedRevenue, collectedRevenue };
-  }, [clients, globalUnitValue, currentViewMonth, isDarkMode]);
+  }, [clients, globalUnitValue, currentViewMonth]);
 
   const hasNotifications = isCurrentRealMonth && (stats.overdue > 0 || stats.today > 0);
 
@@ -345,8 +352,12 @@ export default function App() {
     if (client) {
       setEditingClient(client);
       setFormData({
-        name: client.name, dueDate: client.dueDate, paidMonths: client.paidMonths,
-        subscriptions: client.subscriptions, nextPayment: client.nextPayment || getRealTodayString(),
+        name: client.name, 
+        username: client.username || '', 
+        dueDate: client.dueDate, 
+        paidMonths: client.paidMonths,
+        subscriptions: client.subscriptions, 
+        nextPayment: client.nextPayment || getRealTodayString(),
         customValue: client.customValue !== undefined ? client.customValue : globalUnitValue,
         paymentHistory: client.paymentHistory || [],
         notes: client.notes || '',
@@ -356,8 +367,16 @@ export default function App() {
     } else {
       setEditingClient(null);
       setFormData({ 
-        name: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: currentViewMonth,
-        customValue: globalUnitValue, paymentHistory: [], notes: '', active: true
+        name: '', 
+        username: '', 
+        dueDate: '', 
+        paidMonths: 0, 
+        subscriptions: 1, 
+        nextPayment: currentViewMonth,
+        customValue: globalUnitValue, 
+        paymentHistory: [], 
+        notes: '', 
+        active: true
       });
     }
     setIsModalOpen(true);
@@ -372,8 +391,11 @@ export default function App() {
     e.preventDefault();
     if (!user) return;
 
+    const cleanUsername = formData.username ? formData.username.trim() : '';
+
     const clientData = {
       name: formData.name,
+      username: cleanUsername,
       dueDate: Number(formData.dueDate),
       paidMonths: Number(formData.paidMonths),
       subscriptions: Number(formData.subscriptions),
@@ -440,7 +462,6 @@ export default function App() {
     setPayingClient(null);
   };
 
-  // CONFIRMAR E EXECUTAR PAGAMENTO DE UMA VEZ
   const handleConfirmPayment = async (e) => {
     e.preventDefault();
     if (!payingClient || !user) return;
@@ -491,9 +512,8 @@ export default function App() {
       const nextDateObj = new Date(year, month - 1);
       const nextMonthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(nextDateObj);
       
-      handleClosePaymentModal(); // Fecha Modal de edição
+      handleClosePaymentModal();
       
-      // Abre o Recibo de Sucesso
       setPaymentReceipt({
         clientName: payingClient.name,
         months: monthsToAdd,
@@ -564,7 +584,7 @@ export default function App() {
 
   if (isAuthLoading) {
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center transition-colors duration-300 ${t('bg-slate-50', 'bg-slate-900')}`}>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center transition-colors duration-300">
         <div className="flex items-center gap-3 text-slate-400">
           <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-600 rounded-full animate-spin"></div>
           <span className="text-sm font-medium tracking-wide">A carregar...</span>
@@ -576,29 +596,29 @@ export default function App() {
   // TELA DE LOGIN 
   if (!user) {
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center p-6 transition-colors duration-300 ${t('bg-slate-50', 'bg-slate-900')}`}>
-        <div className={`w-full max-w-sm p-8 rounded-[2.5rem] flex flex-col items-center text-center border transition-colors duration-300 relative ${t('bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-slate-100', 'bg-slate-800 shadow-none border-slate-700')}`}>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center p-6 transition-colors duration-300">
+        <div className="w-full max-w-sm p-8 bg-white dark:bg-slate-800 rounded-[2.5rem] flex flex-col items-center text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-slate-100 dark:border-slate-700 transition-colors duration-300 relative">
           
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)} 
-            className={`absolute top-6 right-6 p-2 rounded-full transition ${t('bg-slate-50 text-slate-400 hover:text-blue-500', 'bg-slate-700 text-slate-300 hover:text-blue-400')}`}
+            className="absolute top-6 right-6 p-2 bg-slate-50 dark:bg-slate-700 rounded-full text-slate-400 hover:text-blue-500 dark:text-slate-300 dark:hover:text-blue-400 transition"
           >
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
-          <div className={`w-20 h-20 rounded-[1.5rem] flex items-center justify-center mb-6 border ${t('bg-blue-50 text-blue-600 border-blue-100/50', 'bg-blue-500/10 text-blue-400 border-blue-500/20')}`}>
+          <div className="w-20 h-20 bg-blue-50 dark:bg-blue-500/10 rounded-[1.5rem] flex items-center justify-center text-blue-600 dark:text-blue-400 mb-6 border border-blue-100/50 dark:border-blue-500/20">
             <Tv size={40} strokeWidth={2} />
           </div>
           
-          <h1 className={`text-2xl font-extrabold leading-tight mb-2 tracking-tight ${t('text-slate-800', 'text-white')}`}>
+          <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white leading-tight mb-2 tracking-tight">
             App Cloud
           </h1>
-          <p className={`mb-6 text-sm px-4 ${t('text-slate-500', 'text-slate-400')}`}>
+          <p className="mb-6 text-sm px-4 text-slate-500 dark:text-slate-400">
             Acesse a sua conta restrita para gerenciar os seus clientes.
           </p>
 
           {authError && (
-            <div className={`w-full text-sm p-3 rounded-xl mb-4 border ${t('bg-red-50 text-red-600 border-red-100', 'bg-red-500/10 text-red-400 border-red-500/20')}`}>
+            <div className="w-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm p-3 rounded-xl mb-4 border border-red-100 dark:border-red-500/20">
               {authError}
             </div>
           )}
@@ -614,7 +634,7 @@ export default function App() {
                 placeholder="Seu e-mail"
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
-                className={`w-full pl-12 pr-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('bg-slate-50 border-slate-200 text-slate-800', 'bg-slate-900 border-slate-600 text-white')}`}
+                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 dark:text-white transition-colors"
               />
             </div>
 
@@ -628,14 +648,14 @@ export default function App() {
                 placeholder="Sua senha"
                 value={authPassword}
                 onChange={(e) => setAuthPassword(e.target.value)}
-                className={`w-full pl-12 pr-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('bg-slate-50 border-slate-200 text-slate-800', 'bg-slate-900 border-slate-600 text-white')}`}
+                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 dark:text-white transition-colors"
               />
             </div>
 
             <button 
               type="submit"
               disabled={isAuthProcessing}
-              className={`w-full bg-blue-600 text-white px-4 py-4 rounded-2xl font-bold hover:bg-blue-700 transition active:scale-95 flex justify-center items-center gap-2 mt-2 ${t('shadow-md shadow-blue-200', 'shadow-none')}`}
+              className="w-full bg-blue-600 text-white px-4 py-4 rounded-2xl font-bold hover:bg-blue-700 transition active:scale-95 flex justify-center items-center gap-2 mt-2 shadow-md shadow-blue-200 dark:shadow-none"
             >
               {isAuthProcessing ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -649,28 +669,28 @@ export default function App() {
 
   // TELA PRINCIPAL (DASHBOARD)
   return (
-    <div className={`min-h-screen pb-24 font-sans transition-colors duration-300 ${t('bg-slate-50 text-slate-800', 'bg-slate-900 text-slate-100')}`}>
+    <div className="min-h-screen pb-24 font-sans bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-300">
       
       {/* CABEÇALHO */}
-      <div className={`px-5 pt-10 pb-6 flex justify-between items-center transition-colors duration-300 ${t('bg-slate-50', 'bg-slate-900')}`}>
+      <div className="px-5 pt-10 pb-6 flex justify-between items-center bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
         <div className="flex items-center gap-3">
-          <div className={`w-11 h-11 bg-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0 ${t('shadow-md shadow-blue-200', 'shadow-none')}`}>
+          <div className="w-11 h-11 bg-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-200 dark:shadow-none">
             <Tv size={22} strokeWidth={2.5} />
           </div>
           <div>
             <div className="flex items-center gap-1.5 mb-0.5">
-              <p className={`text-[9px] font-bold uppercase tracking-widest ${t('text-blue-600', 'text-blue-400')}`}>App Cloud</p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">App Cloud</p>
               {isSynced ? (
-                <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${t('text-emerald-600 bg-emerald-50', 'text-emerald-400 bg-emerald-500/10')}`}>
+                <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10">
                   <Cloud size={10} /> Nuvem Ativa
                 </span>
               ) : (
-                <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${t('text-amber-600 bg-amber-50', 'text-amber-400 bg-amber-500/10')}`}>
+                <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10">
                   <CloudOff size={10} /> A ligar...
                 </span>
               )}
             </div>
-            <h1 className={`text-[1.05rem] font-extrabold leading-tight ${t('text-slate-800', 'text-white')}`}>
+            <h1 className="text-[1.05rem] font-extrabold leading-tight text-slate-800 dark:text-white">
               Sistema de Gerenciamento<br/>de Clientes
             </h1>
           </div>
@@ -678,22 +698,22 @@ export default function App() {
         <div className="flex items-center gap-2 shrink-0">
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`p-2.5 rounded-full border transition active:scale-95 ${t('bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm', 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 shadow-none')}`}
+            className="p-2.5 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 transition active:scale-95 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm dark:shadow-none"
           >
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
           <button 
             onClick={() => setIsNotificationsOpen(true)}
-            className={`p-2.5 rounded-full border relative transition active:scale-95 ${t('bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm', 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 shadow-none')}`}
+            className="p-2.5 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 relative transition active:scale-95 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm dark:shadow-none"
           >
             {hasNotifications && (
-              <span className={`absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 ${t('border-white', 'border-slate-800')}`}></span>
+              <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
             )}
             <Bell size={20} />
           </button>
           
-          <button onClick={() => setIsConfigModalOpen(true)} className={`w-10 h-10 rounded-full border overflow-hidden flex items-center justify-center transition active:scale-95 ${t('bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm', 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 shadow-none')}`}>
+          <button onClick={() => setIsConfigModalOpen(true)} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center transition active:scale-95 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm dark:shadow-none">
              <User size={20} />
           </button>
         </div>
@@ -702,101 +722,101 @@ export default function App() {
       {isDataLoading && clients.length === 0 ? (
         <div className="py-20 flex flex-col items-center justify-center">
           <div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-600 rounded-full animate-spin mb-3"></div>
-          <span className={`text-sm font-medium ${t('text-slate-400', 'text-slate-500')}`}>Carregando base de dados...</span>
+          <span className="text-sm font-medium text-slate-400 dark:text-slate-500">Carregando base de dados...</span>
         </div>
       ) : (
         <>
           {/* CARDS DE INFORMAÇÕES */}
           <div className="px-5 mb-6 flex flex-col gap-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className={`p-4 rounded-[1.25rem] border flex items-center gap-4 transition-colors ${t('bg-white shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] border-slate-100', 'bg-slate-800 shadow-none border-slate-700')}`}>
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${t('bg-blue-50 text-blue-600', 'bg-blue-500/10 text-blue-400')}`}>
+              <div className="p-4 bg-white dark:bg-slate-800 rounded-[1.25rem] border border-slate-100 dark:border-slate-700 flex items-center gap-4 transition-colors shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] dark:shadow-none">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
                   <Users size={24} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <p className={`text-2xl font-extrabold leading-none mb-1 tracking-tight ${t('text-slate-800', 'text-white')}`}>
+                  <p className="text-2xl font-extrabold leading-none mb-1 tracking-tight text-slate-800 dark:text-white">
                     {stats.activeSubs}
                   </p>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wide ${t('text-slate-400', 'text-slate-500')}`}>Ativos (Pts)</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Ativos (Pts)</p>
                 </div>
               </div>
 
-              <div className={`p-4 rounded-[1.25rem] border flex items-center gap-4 transition-colors ${t('bg-white shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] border-slate-100', 'bg-slate-800 shadow-none border-slate-700')}`}>
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${t('bg-emerald-50 text-emerald-600', 'bg-emerald-500/10 text-emerald-400')}`}>
+              <div className="p-4 bg-white dark:bg-slate-800 rounded-[1.25rem] border border-slate-100 dark:border-slate-700 flex items-center gap-4 transition-colors shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] dark:shadow-none">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                   <DollarSign size={24} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <p className={`text-2xl font-extrabold leading-none mb-1 tracking-tight ${t('text-slate-800', 'text-white')}`}>
+                  <p className="text-2xl font-extrabold leading-none mb-1 tracking-tight text-slate-800 dark:text-white">
                     {formatCurrency(stats.collectedRevenue)}
                   </p>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wide ${t('text-slate-400', 'text-slate-500')}`}>Caixa de {formatMonthYear(currentViewMonth).split(' ')[0]}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Caixa de {formatMonthYear(currentViewMonth).split(' ')[0]}</p>
                 </div>
               </div>
             </div>
 
             {/* 5 CARDS DE STATUS MENORES */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              <div className={`p-3 rounded-2xl border flex flex-col gap-1 justify-center relative overflow-hidden transition-colors ${t('bg-red-50 border-red-100', 'bg-red-500/10 border-red-500/20')}`}>
-                <div className={`absolute top-0 right-0 p-2 ${t('opacity-10 text-red-500', 'opacity-20 text-red-500')}`}><AlertCircle size={32} /></div>
-                <div className={`flex items-center gap-1.5 relative z-10 ${t('text-red-600', 'text-red-400')}`}>
+              <div className="p-3 bg-red-50 dark:bg-red-500/10 rounded-2xl border border-red-100 dark:border-red-500/20 flex flex-col gap-1 justify-center relative overflow-hidden transition-colors">
+                <div className="absolute top-0 right-0 p-2 opacity-10 dark:opacity-20 text-red-500"><AlertCircle size={32} /></div>
+                <div className="flex items-center gap-1.5 relative z-10 text-red-600 dark:text-red-400">
                     <AlertCircle size={14} />
                     <span className="text-[10px] font-bold uppercase tracking-wider">Atrasados</span>
                 </div>
-                <span className={`text-2xl font-extrabold relative z-10 ${t('text-red-700', 'text-red-300')}`}>{stats.overdue}</span>
+                <span className="text-2xl font-extrabold relative z-10 text-red-700 dark:text-red-300">{stats.overdue}</span>
               </div>
               
-              <div className={`p-3 rounded-2xl border flex flex-col gap-1 justify-center relative overflow-hidden transition-colors ${t('bg-orange-50 border-orange-100', 'bg-orange-500/10 border-orange-500/20')}`}>
-                <div className={`absolute top-0 right-0 p-2 ${t('opacity-10 text-orange-500', 'opacity-20 text-orange-500')}`}><AlertTriangle size={32} /></div>
-                <div className={`flex items-center gap-1.5 relative z-10 ${t('text-orange-600', 'text-orange-400')}`}>
+              <div className="p-3 bg-orange-50 dark:bg-orange-500/10 rounded-2xl border border-orange-100 dark:border-orange-500/20 flex flex-col gap-1 justify-center relative overflow-hidden transition-colors">
+                <div className="absolute top-0 right-0 p-2 opacity-10 dark:opacity-20 text-orange-500"><AlertTriangle size={32} /></div>
+                <div className="flex items-center gap-1.5 relative z-10 text-orange-600 dark:text-orange-400">
                     <AlertTriangle size={14} />
                     <span className="text-[10px] font-bold uppercase tracking-wider">Hoje</span>
                 </div>
-                <span className={`text-2xl font-extrabold relative z-10 ${t('text-orange-700', 'text-orange-300')}`}>{stats.today}</span>
+                <span className="text-2xl font-extrabold relative z-10 text-orange-700 dark:text-orange-300">{stats.today}</span>
               </div>
 
-              <div className={`p-3 rounded-2xl border flex flex-col gap-1 justify-center relative overflow-hidden transition-colors ${t('bg-yellow-50 border-yellow-100', 'bg-yellow-500/10 border-yellow-500/20')}`}>
-                <div className={`absolute top-0 right-0 p-2 ${t('opacity-10 text-yellow-500', 'opacity-20 text-yellow-500')}`}><Clock size={32} /></div>
-                <div className={`flex items-center gap-1.5 relative z-10 ${t('text-yellow-600', 'text-yellow-400')}`}>
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-500/10 rounded-2xl border border-yellow-100 dark:border-yellow-500/20 flex flex-col gap-1 justify-center relative overflow-hidden transition-colors">
+                <div className="absolute top-0 right-0 p-2 opacity-10 dark:opacity-20 text-yellow-500"><Clock size={32} /></div>
+                <div className="flex items-center gap-1.5 relative z-10 text-yellow-600 dark:text-yellow-400">
                     <Clock size={14} />
                     <span className="text-[10px] font-bold uppercase tracking-wider">Em 7 dias</span>
                 </div>
-                <span className={`text-2xl font-extrabold relative z-10 ${t('text-yellow-700', 'text-yellow-300')}`}>{stats.soon}</span>
+                <span className="text-2xl font-extrabold relative z-10 text-yellow-700 dark:text-yellow-300">{stats.soon}</span>
               </div>
 
-              <div className={`p-3 rounded-2xl border flex flex-col gap-1 justify-center relative overflow-hidden transition-colors ${t('bg-blue-50 border-blue-100', 'bg-blue-500/10 border-blue-500/20')}`}>
-                 <div className={`absolute top-0 right-0 p-2 ${t('opacity-10 text-blue-500', 'opacity-20 text-blue-500')}`}><Calendar size={32} /></div>
-                <div className={`flex items-center gap-1.5 relative z-10 ${t('text-blue-600', 'text-blue-400')}`}>
+              <div className="p-3 bg-blue-50 dark:bg-blue-500/10 rounded-2xl border border-blue-100 dark:border-blue-500/20 flex flex-col gap-1 justify-center relative overflow-hidden transition-colors">
+                 <div className="absolute top-0 right-0 p-2 opacity-10 dark:opacity-20 text-blue-500"><Calendar size={32} /></div>
+                <div className="flex items-center gap-1.5 relative z-10 text-blue-600 dark:text-blue-400">
                     <Calendar size={14} />
                     <span className="text-[10px] font-bold uppercase tracking-wider">A Vencer</span>
                 </div>
-                <span className={`text-2xl font-extrabold relative z-10 ${t('text-blue-700', 'text-blue-300')}`}>{stats.pending}</span>
+                <span className="text-2xl font-extrabold relative z-10 text-blue-700 dark:text-blue-300">{stats.pending}</span>
               </div>
 
-              <div className={`p-3 rounded-2xl border flex flex-col gap-1 justify-center relative overflow-hidden transition-colors ${t('bg-emerald-50 border-emerald-100', 'bg-emerald-500/10 border-emerald-500/20')}`}>
-                 <div className={`absolute top-0 right-0 p-2 ${t('opacity-10 text-emerald-500', 'opacity-20 text-emerald-500')}`}><CheckCircle size={32} /></div>
-                <div className={`flex items-center gap-1.5 relative z-10 ${t('text-emerald-600', 'text-emerald-400')}`}>
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl border border-emerald-100 dark:border-emerald-500/20 flex flex-col gap-1 justify-center relative overflow-hidden transition-colors">
+                 <div className="absolute top-0 right-0 p-2 opacity-10 dark:opacity-20 text-emerald-500"><CheckCircle size={32} /></div>
+                <div className="flex items-center gap-1.5 relative z-10 text-emerald-600 dark:text-emerald-400">
                     <CheckCircle size={14} />
                     <span className="text-[10px] font-bold uppercase tracking-wider">Em Dia</span>
                 </div>
-                <span className={`text-2xl font-extrabold relative z-10 ${t('text-emerald-700', 'text-emerald-300')}`}>{stats.paid}</span>
+                <span className="text-2xl font-extrabold relative z-10 text-emerald-700 dark:text-emerald-300">{stats.paid}</span>
               </div>
             </div>
           </div>
 
           {/* CALENDÁRIO */}
           <div className="px-5 mb-8">
-            <div className={`p-2 rounded-[1.5rem] border flex items-center justify-between transition-colors ${t('bg-white border-slate-100 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)]', 'bg-slate-800 border-slate-700 shadow-none')}`}>
-              <button onClick={() => handleMonthChange(-1)} className={`p-3 rounded-xl transition ${t('text-slate-400 hover:bg-slate-50 hover:text-slate-800', 'text-slate-500 hover:bg-slate-700 hover:text-white')}`}>
+            <div className="p-2 bg-white dark:bg-slate-800 rounded-[1.5rem] border border-slate-100 dark:border-slate-700 flex items-center justify-between transition-colors shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] dark:shadow-none">
+              <button onClick={() => handleMonthChange(-1)} className="p-3 rounded-xl transition text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white">
                 <ChevronLeft size={22}/>
               </button>
               <div className="text-center flex flex-col items-center">
-                <span className={`text-[10px] uppercase font-bold tracking-widest mb-0.5 ${t('text-slate-400', 'text-slate-500')}`}>Competência</span>
+                <span className="text-[10px] uppercase font-bold tracking-widest mb-0.5 text-slate-400 dark:text-slate-500">Competência</span>
                 <div className="flex items-center gap-2">
-                  <span className={`font-extrabold text-lg capitalize ${t('text-slate-800', 'text-white')}`}>{formatMonthYear(currentViewMonth)}</span>
+                  <span className="font-extrabold text-lg capitalize text-slate-800 dark:text-white">{formatMonthYear(currentViewMonth)}</span>
                   {!isCurrentRealMonth && <span className="w-2 h-2 rounded-full bg-orange-400" title="Não é o mês atual"></span>}
                 </div>
               </div>
-              <button onClick={() => handleMonthChange(1)} className={`p-3 rounded-xl transition ${t('text-slate-400 hover:bg-slate-50 hover:text-slate-800', 'text-slate-500 hover:bg-slate-700 hover:text-white')}`}>
+              <button onClick={() => handleMonthChange(1)} className="p-3 rounded-xl transition text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white">
                 <ChevronRight size={22}/>
               </button>
             </div>
@@ -807,12 +827,12 @@ export default function App() {
             <div>
               <div className="relative mb-4">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Search className={`h-5 w-5 ${t('text-slate-400', 'text-slate-500')}`} />
+                  <Search className="h-5 w-5 text-slate-400 dark:text-slate-500" />
                 </div>
                 <input
                   type="text"
-                  className={`block w-full pl-12 pr-4 py-3.5 border rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base transition-colors ${t('bg-white border-slate-200 placeholder-slate-400 text-slate-800 shadow-sm', 'bg-slate-800 border-slate-700 placeholder-slate-500 text-white shadow-none')}`}
-                  placeholder="Pesquisar cliente..."
+                  className="block w-full pl-12 pr-4 py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base transition-colors text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 shadow-sm dark:shadow-none"
+                  placeholder="Pesquisar cliente ou @usuario..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -829,8 +849,8 @@ export default function App() {
                       onClick={() => setFilterType(type)}
                       className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
                         filterType === type 
-                        ? t('bg-slate-800 text-white border border-transparent', 'bg-blue-600 text-white border border-transparent')
-                        : t('bg-white border border-slate-200 text-slate-600 hover:bg-slate-50', 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700')
+                        ? 'bg-slate-800 dark:bg-blue-600 text-white border border-transparent'
+                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                       }`}
                     >
                       {labels[type]}
@@ -848,10 +868,10 @@ export default function App() {
                 const isArchived = client.paymentStatus.status === 'ARCHIVED';
                 
                 return (
-                  <div key={client.id} className={`p-4 rounded-2xl border flex flex-col gap-3 relative overflow-hidden transition-colors ${t('bg-white shadow-sm border-slate-100', 'bg-slate-800 shadow-none border-slate-700')}`}>
+                  <div key={client.id} className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col gap-3 relative overflow-hidden transition-colors shadow-sm dark:shadow-none">
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${
                       isPaid ? 'bg-emerald-500' : 
-                      isArchived ? t('bg-slate-400', 'bg-slate-600') :
+                      isArchived ? 'bg-slate-400 dark:bg-slate-600' :
                       client.paymentStatus.status.includes('OVERDUE') ? 'bg-red-500' : 
                       client.paymentStatus.status === 'TODAY' ? 'bg-orange-500' : 
                       client.paymentStatus.status === 'SOON' ? 'bg-yellow-500' : 'bg-blue-500'
@@ -859,25 +879,37 @@ export default function App() {
 
                     <div className="flex justify-between items-start pl-2">
                       <div className="flex-1 cursor-pointer" onClick={() => handleOpenModal(client)}>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <h3 className={`font-bold text-lg ${isArchived ? t('text-slate-400 line-through', 'text-slate-500 line-through') : t('text-slate-800', 'text-white')}`}>{client.name}</h3>
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1 ${client.paymentStatus.color}`}>
-                            <StatusIcon size={12} />
-                            {client.paymentStatus.label}
-                          </span>
+                        
+                        <div className="flex flex-col mb-1.5">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <h3 className={`font-bold text-lg ${isArchived ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-white'}`}>{client.name}</h3>
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1 ${client.paymentStatus.color}`}>
+                              <StatusIcon size={12} />
+                              {client.paymentStatus.label}
+                            </span>
+                          </div>
+                          
+                          {/* EXIBIÇÃO DO USERNAME ABAIXO DO NOME */}
+                          {client.username && (
+                            <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                              {client.username.startsWith('@') ? client.username : `@${client.username}`}
+                            </div>
+                          )}
+                          {!client.username && <div className="mb-1"></div>}
                         </div>
-                        <div className={`flex items-center gap-4 text-sm ${t('text-slate-500', 'text-slate-400')}`}>
-                          <span className="flex items-center gap-1"><Calendar size={14} className={t('text-slate-400', 'text-slate-500')}/> Dia {client.dueDate}</span>
-                          <span className="flex items-center gap-1"><Users size={14} className={t('text-slate-400', 'text-slate-500')}/> {client.subscriptions} pt</span>
+
+                        <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+                          <span className="flex items-center gap-1"><Calendar size={14} className="text-slate-400 dark:text-slate-500"/> Dia {client.dueDate}</span>
+                          <span className="flex items-center gap-1"><Users size={14} className="text-slate-400 dark:text-slate-500"/> {client.subscriptions} pt</span>
                           <span className="flex items-center gap-1 font-medium">{formatCurrency(clientVal * (Number(client.subscriptions) || 1))}</span>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 mt-1">
                         {!isArchived && (
                           <button 
                             onClick={(e) => requestDelete(e, client)} 
-                            className={`p-2.5 rounded-xl transition active:scale-90 ${t('text-red-500 bg-red-50 hover:bg-red-100', 'text-red-400 bg-red-500/10 hover:bg-red-500/20')}`}
+                            className="p-2.5 rounded-xl transition active:scale-90 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20"
                             title="Excluir/Arquivar Cliente"
                           >
                             <Trash2 size={16} />
@@ -885,7 +917,7 @@ export default function App() {
                         )}
                         <button 
                           onClick={() => handleOpenModal(client)} 
-                          className={`p-2.5 rounded-xl transition active:scale-90 ${t('text-blue-500 bg-blue-50 hover:bg-blue-100', 'text-blue-400 bg-blue-500/10 hover:bg-blue-500/20')}`}
+                          className="p-2.5 rounded-xl transition active:scale-90 text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20"
                           title="Editar Cliente"
                         >
                           <Edit2 size={16} />
@@ -895,23 +927,23 @@ export default function App() {
 
                     {client.notes && (
                       <div className="pl-2 mt-1">
-                        <p className={`text-xs italic flex gap-1 items-start p-2 rounded-lg border ${t('text-slate-500 bg-slate-50 border-slate-100', 'text-slate-400 bg-slate-900/50 border-slate-700')}`}>
+                        <p className="text-xs italic flex gap-1 items-start p-2 rounded-lg border text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700">
                           <FileText size={12} className="mt-0.5 shrink-0 opacity-70"/>
                           {client.notes}
                         </p>
                       </div>
                     )}
 
-                    <div className={`flex items-center justify-between mt-1 pt-3 border-t pl-2 ${t('border-slate-50', 'border-slate-700/50')}`}>
+                    <div className="flex items-center justify-between mt-1 pt-3 border-t border-slate-50 dark:border-slate-700/50 pl-2">
                       <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium ${t('text-slate-500', 'text-slate-400')}`}>
-                          Total recebido: <strong className={t('text-slate-700', 'text-slate-300')}>{client.paidMonths || 0}x</strong>
+                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                          Total recebido: <strong className="text-slate-700 dark:text-slate-300">{client.paidMonths || 0}x</strong>
                         </span>
                       </div>
                       {isArchived ? (
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleReactivate(client); }}
-                          className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-sm active:scale-95 ${t('bg-slate-800 text-white hover:bg-slate-900', 'bg-slate-700 text-white hover:bg-slate-600')}`}
+                          className="px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-sm active:scale-95 bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900 dark:hover:bg-slate-600"
                         >
                           <RotateCcw size={16} /> Reativar
                         </button>
@@ -920,13 +952,13 @@ export default function App() {
                           {!isPaid && (
                             <button 
                               onClick={() => handleOpenPaymentModal(client)}
-                              className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-sm border active:scale-95 ${t('bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100', 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20')}`}
+                              className="px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-sm border active:scale-95 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-500/20 hover:bg-blue-100 dark:hover:bg-blue-500/20"
                             >
                               <DollarSign size={16} /> Receber
                             </button>
                           )}
                           {isPaid && (
-                            <span className={`text-sm font-bold flex items-center gap-1 ${t('text-emerald-600', 'text-emerald-400')}`}>
+                            <span className="text-sm font-bold flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                               <CheckCircle size={16}/> Recebido
                             </span>
                           )}
@@ -938,8 +970,8 @@ export default function App() {
               })}
 
               {processedClients.length === 0 && (
-                <div className={`text-center py-12 ${t('text-slate-500', 'text-slate-500')}`}>
-                  <CheckCircle size={48} className={`mx-auto mb-3 opacity-50 ${t('text-slate-300', 'text-slate-600')}`} />
+                <div className="text-center py-12 text-slate-500 dark:text-slate-500">
+                  <CheckCircle size={48} className="mx-auto mb-3 opacity-50 text-slate-300 dark:text-slate-600" />
                   <p>Nenhum cliente encontrado para esta seleção.</p>
                 </div>
               )}
@@ -951,7 +983,7 @@ export default function App() {
       {user && !isDataLoading && (
         <button 
           onClick={() => handleOpenModal()}
-          className={`fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-90 transition-transform z-10 ${t('shadow-blue-300', 'shadow-none')}`}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-300 dark:shadow-none hover:bg-blue-700 active:scale-90 transition-transform z-10"
         >
           <Plus size={28} />
         </button>
@@ -962,10 +994,10 @@ export default function App() {
       {/* 1. NOTIFICAÇÕES */}
       {isNotificationsOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-end sm:items-center justify-center p-4">
-          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 flex flex-col transition-colors ${t('bg-white', 'bg-slate-800')}`}>
-            <div className={`px-6 py-5 border-b flex justify-between items-center shrink-0 ${t('bg-white border-slate-100', 'bg-slate-800 border-slate-700')}`}>
-              <h2 className={`text-xl font-bold flex items-center gap-2 ${t('text-slate-800', 'text-white')}`}><Bell size={20} className="text-slate-400"/> Notificações</h2>
-              <button type="button" onClick={() => setIsNotificationsOpen(false)} className={`p-2 rounded-full transition ${t('text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100', 'text-slate-400 hover:text-slate-200 bg-slate-700 hover:bg-slate-600')}`}><X size={20} /></button>
+          <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 flex flex-col transition-colors">
+            <div className="px-6 py-5 border-b bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 flex justify-between items-center shrink-0">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800 dark:text-white"><Bell size={20} className="text-slate-400"/> Notificações</h2>
+              <button type="button" onClick={() => setIsNotificationsOpen(false)} className="p-2 rounded-full transition text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600"><X size={20} /></button>
             </div>
             
             <div className="p-6">
@@ -974,7 +1006,7 @@ export default function App() {
                   {stats.today > 0 && (
                     <div 
                       onClick={() => { setFilterType('TODAY'); setIsNotificationsOpen(false); }} 
-                      className={`cursor-pointer p-4 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition border ${t('bg-orange-50 border-orange-100 text-orange-800 hover:bg-orange-100', 'bg-orange-500/10 border-orange-500/20 text-orange-400 hover:bg-orange-500/20')}`}
+                      className="cursor-pointer p-4 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition border bg-orange-50 dark:bg-orange-500/10 border-orange-100 dark:border-orange-500/20 text-orange-800 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20"
                     >
                       <AlertTriangle size={24} className="text-orange-500 shrink-0" />
                       <div>
@@ -986,7 +1018,7 @@ export default function App() {
                   {stats.overdue > 0 && (
                     <div 
                       onClick={() => { setFilterType('OVERDUE'); setIsNotificationsOpen(false); }} 
-                      className={`cursor-pointer p-4 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition border ${t('bg-red-50 border-red-100 text-red-800 hover:bg-red-100', 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20')}`}
+                      className="cursor-pointer p-4 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition border bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20 text-red-800 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20"
                     >
                       <AlertCircle size={24} className="text-red-500 shrink-0" />
                       <div>
@@ -997,9 +1029,9 @@ export default function App() {
                   )}
                 </div>
               ) : (
-                <div className={`text-center py-6 ${t('text-slate-500', 'text-slate-400')}`}>
+                <div className="text-center py-6 text-slate-500 dark:text-slate-400">
                   <CheckCircle size={40} className="mx-auto mb-3 text-emerald-400 opacity-80" />
-                  <p className={`font-medium ${t('text-slate-700', 'text-slate-300')}`}>Tudo limpo por aqui!</p>
+                  <p className="font-medium text-slate-700 dark:text-slate-300">Tudo limpo por aqui!</p>
                   <p className="text-sm mt-1">Nenhum aviso no momento.</p>
                 </div>
               )}
@@ -1011,22 +1043,22 @@ export default function App() {
       {/* 2. CONFIRMAR DESATIVAÇÃO */}
       {clientToDelete && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6 transition-colors ${t('bg-white', 'bg-slate-800')}`}>
+          <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6 transition-colors">
             <div className="flex flex-col items-center text-center">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${t('bg-red-100 text-red-500', 'bg-red-500/20 text-red-400')}`}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-100 dark:bg-red-500/20 text-red-500 dark:text-red-400">
                 <Archive size={32} />
               </div>
-              <h2 className={`text-xl font-bold mb-2 ${t('text-slate-800', 'text-white')}`}>Desativar Cliente?</h2>
-              <p className={`mb-6 text-sm ${t('text-slate-500', 'text-slate-400')}`}>
+              <h2 className="text-xl font-bold mb-2 text-slate-800 dark:text-white">Desativar Cliente?</h2>
+              <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
                 <strong>{clientToDelete.name}</strong> sairá da lista principal e deixará de ser cobrado(a), mas os <strong>pagamentos antigos continuarão salvos</strong>. Poderá reativá-lo mais tarde na aba de Inativos.
               </p>
               
               <div className="flex gap-3 w-full mb-3">
-                <button onClick={() => setClientToDelete(null)} className={`flex-1 py-3.5 font-bold rounded-2xl transition active:scale-95 ${t('bg-slate-100 text-slate-600 hover:bg-slate-200', 'bg-slate-700 text-slate-300 hover:bg-slate-600')}`}>Cancelar</button>
-                <button onClick={confirmArchive} className={`flex-1 py-3.5 text-white font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 ${t('bg-red-500 hover:bg-red-600', 'bg-red-600 hover:bg-red-500')}`}><Archive size={18}/> Desativar</button>
+                <button onClick={() => setClientToDelete(null)} className="flex-1 py-3.5 font-bold rounded-2xl transition active:scale-95 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600">Cancelar</button>
+                <button onClick={confirmArchive} className="flex-1 py-3.5 text-white font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-500"><Archive size={18}/> Desativar</button>
               </div>
               
-              <button onClick={confirmHardDelete} className={`text-xs underline py-2 mt-2 transition ${t('text-slate-400 hover:text-red-500', 'text-slate-500 hover:text-red-400')}`}>
+              <button onClick={confirmHardDelete} className="text-xs underline py-2 mt-2 transition text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400">
                  Excluir permanentemente (apaga o histórico)
               </button>
             </div>
@@ -1037,25 +1069,25 @@ export default function App() {
       {/* 3. MODAL DE EDIÇÃO DE CLIENTE */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
-          <div className={`w-full sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 flex flex-col max-h-[90vh] transition-colors ${t('bg-white', 'bg-slate-800')}`}>
-            <div className={`px-6 py-5 border-b flex justify-between items-center sticky top-0 z-10 shrink-0 ${t('bg-white border-slate-100', 'bg-slate-800 border-slate-700')}`}>
-              <h2 className={`text-xl font-bold ${t('text-slate-800', 'text-white')}`}>{editingClient ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-              <button type="button" onClick={handleCloseModal} className={`p-2 rounded-full transition ${t('text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100', 'text-slate-400 hover:text-slate-200 bg-slate-700 hover:bg-slate-600')}`}><X size={20} /></button>
+          <div className="w-full sm:max-w-md bg-white dark:bg-slate-800 rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 flex flex-col max-h-[90vh] transition-colors">
+            <div className="px-6 py-5 border-b bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 flex justify-between items-center sticky top-0 z-10 shrink-0">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white">{editingClient ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+              <button type="button" onClick={handleCloseModal} className="p-2 rounded-full transition text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600"><X size={20} /></button>
             </div>
             
             <form id="client-form" onSubmit={handleSaveClient} className="p-6 overflow-y-auto flex-1">
               <div className="space-y-5">
                 
                 {editingClient && formData.active === false && (
-                  <div className={`p-3 rounded-2xl flex items-center justify-between mb-4 border ${t('bg-slate-100 border-slate-200', 'bg-slate-700/50 border-slate-600')}`}>
-                    <div className={`flex items-center gap-2 ${t('text-slate-600', 'text-slate-300')}`}>
+                  <div className="p-3 rounded-2xl flex items-center justify-between mb-4 border bg-slate-100 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600">
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                        <Archive size={16} />
                        <span className="text-sm font-semibold">Cliente Desativado</span>
                     </div>
                     <button 
                       type="button" 
                       onClick={() => setFormData({...formData, active: true})} 
-                      className={`text-sm font-bold px-3 py-1.5 rounded-lg border shadow-sm transition active:scale-95 ${t('text-blue-600 hover:text-blue-800 bg-white border-slate-200', 'text-blue-400 hover:text-blue-300 bg-slate-800 border-slate-600')}`}
+                      className="text-sm font-bold px-3 py-1.5 rounded-lg border shadow-sm transition active:scale-95 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600"
                     >
                       Reativar
                     </button>
@@ -1063,63 +1095,69 @@ export default function App() {
                 )}
 
                 <div>
-                  <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Nome do Cliente</label>
-                  <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
+                  <label className="block text-sm font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Nome do Cliente</label>
+                  <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white" />
+                </div>
+
+                {/* NOVO CAMPO: USERNAME */}
+                <div>
+                  <label className="block text-sm font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Usuário / Username (Opcional)</label>
+                  <input type="text" placeholder="Ex: joao_silva" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white" />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Dia Vencimento</label>
-                    <input type="number" min="1" max="31" required value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
+                    <label className="block text-sm font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Dia Vencimento</label>
+                    <input type="number" min="1" max="31" required value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white" />
                   </div>
                   <div>
-                    <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Assinaturas (Pts)</label>
-                    <input type="number" min="0" step="0.5" required value={formData.subscriptions} onChange={(e) => setFormData({...formData, subscriptions: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
+                    <label className="block text-sm font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Assinaturas (Pts)</label>
+                    <input type="number" min="0" step="0.5" required value={formData.subscriptions} onChange={(e) => setFormData({...formData, subscriptions: e.target.value})} className="w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white" />
                   </div>
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Valor da Assinatura (R$)</label>
-                  <input type="number" step="0.01" required value={formData.customValue} onChange={(e) => setFormData({...formData, customValue: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
+                  <label className="block text-sm font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Valor da Assinatura (R$)</label>
+                  <input type="number" step="0.01" required value={formData.customValue} onChange={(e) => setFormData({...formData, customValue: e.target.value})} className="w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white" />
                 </div>
 
-                <div className={`p-4 rounded-2xl border ${t('bg-blue-50/50 border-blue-100', 'bg-blue-500/10 border-blue-500/20')}`}>
-                  <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Mês da Próxima Cobrança</label>
-                  <input type="month" required value={formData.nextPayment} onChange={(e) => setFormData({...formData, nextPayment: e.target.value})} className={`w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('bg-white border-blue-200 text-slate-800', 'bg-slate-800 border-blue-500/30 text-white')}`} />
-                  <p className={`text-[11px] mt-2 leading-tight ${t('text-blue-600/70', 'text-blue-400')}`}>Define quando o status voltará a ser "A Vencer".</p>
+                <div className="p-4 rounded-2xl border bg-blue-50/50 dark:bg-blue-500/10 border-blue-100 dark:border-blue-500/20">
+                  <label className="block text-sm font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Mês da Próxima Cobrança</label>
+                  <input type="month" required value={formData.nextPayment} onChange={(e) => setFormData({...formData, nextPayment: e.target.value})} className="w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors bg-white dark:bg-slate-800 border-blue-200 dark:border-blue-500/30 text-slate-800 dark:text-white" />
+                  <p className="text-[11px] mt-2 leading-tight text-blue-600/70 dark:text-blue-400">Define quando o status voltará a ser "A Vencer".</p>
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Observações</label>
-                  <textarea rows="2" placeholder="Adicione um detalhe sobre o plano..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`}></textarea>
+                  <label className="block text-sm font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Observações</label>
+                  <textarea rows="2" placeholder="Adicione um detalhe sobre o plano..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className="w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-colors border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white"></textarea>
                 </div>
 
                 {editingClient && (
-                  <div className={`border rounded-2xl overflow-hidden ${t('border-slate-200', 'border-slate-700')}`}>
-                    <button type="button" onClick={() => setShowHistory(!showHistory)} className={`w-full px-4 py-3 flex justify-between items-center text-sm font-semibold transition-colors ${t('bg-slate-50 text-slate-700', 'bg-slate-700 text-slate-200')}`}>
+                  <div className="border rounded-2xl overflow-hidden border-slate-200 dark:border-slate-700">
+                    <button type="button" onClick={() => setShowHistory(!showHistory)} className="w-full px-4 py-3 flex justify-between items-center text-sm font-semibold transition-colors bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
                       <span className="flex items-center gap-2"><FileText size={16} /> Histórico de Pagamentos</span>
                       {showHistory ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                     </button>
                     
                     {showHistory && (
-                      <div className={`p-4 border-t max-h-56 overflow-y-auto ${t('bg-white border-slate-200', 'bg-slate-800 border-slate-700')}`}>
+                      <div className="p-4 border-t max-h-56 overflow-y-auto bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                         {formData.paymentHistory && formData.paymentHistory.length > 0 ? (
                           <div className="space-y-4">
                             {formData.paymentHistory.map((record) => (
-                              <div key={record.id} className={`text-sm border-b pb-3 last:border-0 last:pb-0 relative group ${t('border-slate-100', 'border-slate-700')}`}>
-                                <div className={`flex justify-between font-bold pr-8 ${t('text-slate-800', 'text-slate-200')}`}>
+                              <div key={record.id} className="text-sm border-b pb-3 last:border-0 last:pb-0 relative group border-slate-100 dark:border-slate-700">
+                                <div className="flex justify-between font-bold pr-8 text-slate-800 dark:text-slate-200">
                                   <span>{formatCurrency(record.amount)}</span>
-                                  <span className={`text-xs font-normal ${t('text-slate-400', 'text-slate-500')}`}>{formatDate(record.date)}</span>
+                                  <span className="text-xs font-normal text-slate-400 dark:text-slate-500">{formatDate(record.date)}</span>
                                 </div>
-                                <div className={`text-xs mt-1 ${t('text-slate-500', 'text-slate-400')}`}>
-                                  Ref: <span className={`font-medium ${t('text-slate-700', 'text-slate-300')}`}>{record.refMonths || `${record.monthsPaid} mês(es)`}</span>
+                                <div className="text-xs mt-1 text-slate-500 dark:text-slate-400">
+                                  Ref: <span className="font-medium text-slate-700 dark:text-slate-300">{record.refMonths || `${record.monthsPaid} mês(es)`}</span>
                                 </div>
-                                {record.discount > 0 && <div className={`text-xs mt-0.5 ${t('text-emerald-600', 'text-emerald-400')}`}>Desconto de {formatCurrency(record.discount)} aplicado.</div>}
+                                {record.discount > 0 && <div className="text-xs mt-0.5 text-emerald-600 dark:text-emerald-400">Desconto de {formatCurrency(record.discount)} aplicado.</div>}
                                 
                                 <button 
                                   type="button" 
                                   onClick={() => handleUndoPayment(editingClient, record.id)}
-                                  className={`absolute top-0 right-0 p-2 rounded-lg transition active:scale-95 ${t('text-slate-300 hover:text-red-500 hover:bg-red-50', 'text-slate-600 hover:text-red-400 hover:bg-red-500/10')}`}
+                                  className="absolute top-0 right-0 p-2 rounded-lg transition active:scale-95 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
                                   title="Desfazer este pagamento"
                                 >
                                   <Trash2 size={16} />
@@ -1128,7 +1166,7 @@ export default function App() {
                             ))}
                           </div>
                         ) : (
-                          <p className={`text-sm text-center py-2 ${t('text-slate-400', 'text-slate-500')}`}>Nenhum pagamento registado via app.</p>
+                          <p className="text-sm text-center py-2 text-slate-400 dark:text-slate-500">Nenhum pagamento registado via app.</p>
                         )}
                       </div>
                     )}
@@ -1137,8 +1175,8 @@ export default function App() {
               </div>
             </form>
             
-            <div className={`p-6 border-t shrink-0 transition-colors ${t('bg-white border-slate-100', 'bg-slate-800 border-slate-700')}`}>
-              <button form="client-form" type="submit" className={`w-full text-white px-4 py-3.5 rounded-2xl font-bold transition active:scale-95 ${t('bg-slate-800 hover:bg-slate-900', 'bg-blue-600 hover:bg-blue-700')}`}>Salvar Alterações</button>
+            <div className="p-6 border-t shrink-0 transition-colors bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700">
+              <button form="client-form" type="submit" className="w-full text-white px-4 py-3.5 rounded-2xl font-bold transition active:scale-95 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700">Salvar Alterações</button>
             </div>
           </div>
         </div>
@@ -1147,7 +1185,7 @@ export default function App() {
       {/* 4. MODAL DE REGISTO DE PAGAMENTO */}
       {isPaymentModalOpen && payingClient && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden transition-colors ${t('bg-white', 'bg-slate-800')}`}>
+          <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden transition-colors">
             <div className="bg-blue-600 p-5 text-white flex justify-between items-start">
               <div>
                 <h2 className="text-lg font-bold">Registar Recebimento</h2>
@@ -1159,34 +1197,34 @@ export default function App() {
             <form onSubmit={handleConfirmPayment} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Quantos meses está a pagar?</label>
+                  <label className="block text-sm font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Quantos meses está a pagar?</label>
                   <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => setPaymentForm(p => ({...p, monthsToPay: Math.max(1, p.monthsToPay - 1)}))} className={`w-10 h-10 rounded-xl font-bold ${t('bg-slate-100 text-slate-600', 'bg-slate-700 text-slate-300')}`}>-</button>
-                    <input type="number" min="1" value={paymentForm.monthsToPay} onChange={(e) => setPaymentForm({...paymentForm, monthsToPay: Math.max(1, Number(e.target.value))})} className={`flex-1 text-center px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 font-bold text-lg outline-none transition-colors ${t('border-slate-200 bg-white text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
-                    <button type="button" onClick={() => setPaymentForm(p => ({...p, monthsToPay: p.monthsToPay + 1}))} className={`w-10 h-10 rounded-xl font-bold ${t('bg-slate-100 text-slate-600', 'bg-slate-700 text-slate-300')}`}>+</button>
+                    <button type="button" onClick={() => setPaymentForm(p => ({...p, monthsToPay: Math.max(1, p.monthsToPay - 1)}))} className="w-10 h-10 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">-</button>
+                    <input type="number" min="1" value={paymentForm.monthsToPay} onChange={(e) => setPaymentForm({...paymentForm, monthsToPay: Math.max(1, Number(e.target.value))})} className="flex-1 text-center px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 font-bold text-lg outline-none transition-colors border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white" />
+                    <button type="button" onClick={() => setPaymentForm(p => ({...p, monthsToPay: p.monthsToPay + 1}))} className="w-10 h-10 rounded-xl font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">+</button>
                   </div>
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Desconto (R$)</label>
-                  <input type="number" step="0.01" min="0" value={paymentForm.discount} onChange={(e) => setPaymentForm({...paymentForm, discount: e.target.value})} className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
+                  <label className="block text-sm font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Desconto (R$)</label>
+                  <input type="number" step="0.01" min="0" value={paymentForm.discount} onChange={(e) => setPaymentForm({...paymentForm, discount: e.target.value})} className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white" />
                 </div>
 
-                <div className={`p-4 rounded-xl border space-y-2 mt-2 transition-colors ${t('bg-slate-50 border-slate-100', 'bg-slate-900 border-slate-700')}`}>
-                  <div className={`flex justify-between text-sm border-b pb-2 mb-2 ${t('text-slate-500 border-slate-200', 'text-slate-400 border-slate-700')}`}>
+                <div className="p-4 rounded-xl border space-y-2 mt-2 transition-colors bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-700">
+                  <div className="flex justify-between text-sm border-b pb-2 mb-2 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700">
                     <span>O valor entrará no caixa de:</span>
-                    <span className={`font-bold capitalize ${t('text-blue-600', 'text-blue-400')}`}>{formatMonthYear(currentViewMonth).split(' ')[0]}</span>
+                    <span className="font-bold capitalize text-blue-600 dark:text-blue-400">{formatMonthYear(currentViewMonth).split(' ')[0]}</span>
                   </div>
-                  <div className={`flex justify-between text-sm ${t('text-slate-500', 'text-slate-400')}`}>
+                  <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
                     <span>Subtotal ({paymentForm.monthsToPay}x)</span>
                     <span>{formatCurrency((Number(payingClient.customValue) || globalUnitValue) * (Number(payingClient.subscriptions) || 1) * paymentForm.monthsToPay)}</span>
                   </div>
                   {paymentForm.discount > 0 && (
-                     <div className={`flex justify-between text-sm ${t('text-emerald-600', 'text-emerald-400')}`}>
+                     <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
                      <span>Desconto</span><span>- {formatCurrency(paymentForm.discount)}</span>
                    </div>
                   )}
-                  <div className={`flex justify-between font-bold text-lg pt-2 border-t ${t('text-slate-800 border-slate-200', 'text-slate-200 border-slate-700')}`}>
+                  <div className="flex justify-between font-bold text-lg pt-2 border-t text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700">
                     <span>Total a Receber</span>
                     <span>{formatCurrency(Math.max(0, ((Number(payingClient.customValue) || globalUnitValue) * (Number(payingClient.subscriptions) || 1) * paymentForm.monthsToPay) - paymentForm.discount))}</span>
                   </div>
@@ -1204,16 +1242,16 @@ export default function App() {
       {/* 5. MODAL: RECIBO DE SUCESSO */}
       {paymentReceipt && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
-          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6 transition-colors text-center ${t('bg-white', 'bg-slate-800')}`}>
+          <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6 transition-colors text-center">
             
-            <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 ${t('bg-emerald-100 text-emerald-500', 'bg-emerald-500/20 text-emerald-400')}`}>
+            <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400">
               <CheckCircle size={40} strokeWidth={2.5} />
             </div>
             
-            <h2 className={`text-xl font-extrabold mb-1 ${t('text-slate-800', 'text-white')}`}>Pagamento Registado!</h2>
-            <p className={`text-sm mb-6 ${t('text-slate-500', 'text-slate-400')}`}>A renovação de {paymentReceipt.clientName} foi concluída com sucesso.</p>
+            <h2 className="text-xl font-extrabold mb-1 text-slate-800 dark:text-white">Pagamento Registado!</h2>
+            <p className="text-sm mb-6 text-slate-500 dark:text-slate-400">A renovação de {paymentReceipt.clientName} foi concluída com sucesso.</p>
 
-            <div className={`text-left p-4 rounded-2xl border mb-6 text-sm whitespace-pre-wrap leading-relaxed ${t('bg-slate-50 border-slate-200 text-slate-700', 'bg-slate-900 border-slate-700 text-slate-300')}`}>
+            <div className="text-left p-4 rounded-2xl border mb-6 text-sm whitespace-pre-wrap leading-relaxed bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
               Olá <strong>{paymentReceipt.clientName}</strong>, tudo bem? 🚀<br/>
               O seu pagamento foi recebido e a renovação de <strong>{paymentReceipt.months} mês(es)</strong> foi concluída com sucesso! Muito obrigado!<br/><br/>
               📅 O seu próximo vencimento será no <strong>dia {paymentReceipt.dueDate} de {paymentReceipt.nextMonthName}</strong>.<br/><br/>
@@ -1225,8 +1263,8 @@ export default function App() {
                 onClick={handleCopyReceipt}
                 className={`w-full py-4 font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 ${
                   isCopied 
-                  ? t('bg-emerald-500 text-white', 'bg-emerald-600 text-white') 
-                  : t('bg-blue-600 text-white hover:bg-blue-700', 'bg-blue-600 text-white hover:bg-blue-700')
+                  ? 'bg-emerald-500 dark:bg-emerald-600 text-white' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
                 {isCopied ? <CheckCircle size={18} /> : <Copy size={18} />}
@@ -1235,7 +1273,7 @@ export default function App() {
               
               <button 
                 onClick={() => setPaymentReceipt(null)}
-                className={`w-full py-3.5 font-bold rounded-2xl transition active:scale-95 ${t('bg-slate-100 text-slate-600 hover:bg-slate-200', 'bg-slate-700 text-slate-300 hover:bg-slate-600')}`}
+                className="w-full py-3.5 font-bold rounded-2xl transition active:scale-95 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 Fechar
               </button>
@@ -1247,30 +1285,30 @@ export default function App() {
       {/* 6. MODAL DE CONFIGURAÇÕES */}
       {isConfigModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 p-6 flex flex-col max-h-[90vh] transition-colors ${t('bg-white', 'bg-slate-800')}`}>
+          <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl animate-in zoom-in-95 p-6 flex flex-col max-h-[90vh] transition-colors">
             <div className="flex justify-between items-center mb-6">
-              <h2 className={`text-xl font-bold ${t('text-slate-800', 'text-white')}`}>Conta e Ajustes</h2>
-              <button onClick={() => setIsConfigModalOpen(false)} className={`p-2 rounded-full transition ${t('text-slate-400 hover:bg-slate-50', 'text-slate-400 hover:bg-slate-700')}`}><X size={20} /></button>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white">Conta e Ajustes</h2>
+              <button onClick={() => setIsConfigModalOpen(false)} className="p-2 rounded-full transition text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600"><X size={20} /></button>
             </div>
             
             <div className="flex-1 overflow-y-auto space-y-6">
-              <div className={`flex flex-col items-center p-4 rounded-2xl border transition-colors ${t('bg-slate-50 border-slate-100', 'bg-slate-900 border-slate-700')}`}>
-                <div className={`w-16 h-16 rounded-full mb-3 flex items-center justify-center shadow-sm border ${t('bg-blue-100 text-blue-600 border-blue-200', 'bg-blue-900/50 text-blue-400 border-blue-800')}`}>
+              <div className="flex flex-col items-center p-4 rounded-2xl border transition-colors bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-700">
+                <div className="w-16 h-16 rounded-full mb-3 flex items-center justify-center shadow-sm border bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
                   <User size={32} />
                 </div>
-                <p className={`font-bold ${t('text-slate-800', 'text-white')}`}>Conta Admin</p>
-                <p className={`text-xs ${t('text-slate-500', 'text-slate-400')}`}>{user.email}</p>
+                <p className="font-bold text-slate-800 dark:text-white">Conta Admin</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{user.email}</p>
               </div>
 
               <div>
-                <label className={`block text-sm font-semibold mb-2 ${t('text-slate-700', 'text-slate-300')}`}>Valor Base da Assinatura (R$)</label>
-                <input type="number" step="0.01" value={globalUnitValue} onChange={(e) => setGlobalUnitValue(Number(e.target.value))} className={`w-full px-4 py-4 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-xl font-bold transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
+                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Valor Base da Assinatura (R$)</label>
+                <input type="number" step="0.01" value={globalUnitValue} onChange={(e) => setGlobalUnitValue(Number(e.target.value))} className="w-full px-4 py-4 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-xl font-bold transition-colors border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white" />
               </div>
 
-              <div className={`pt-4 border-t ${t('border-slate-100', 'border-slate-700')}`}>
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
                 <button 
                   onClick={handleLogout} 
-                  className={`w-full py-4 font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 ${t('bg-red-50 text-red-600 hover:bg-red-100', 'bg-red-500/10 text-red-400 hover:bg-red-500/20')}`}
+                  className="w-full py-4 font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20"
                 >
                   <LogOut size={18} /> Sair da Conta
                 </button>
@@ -1278,7 +1316,7 @@ export default function App() {
             </div>
             
             <div className="pt-6 mt-2 shrink-0">
-              <button onClick={() => setIsConfigModalOpen(false)} className={`w-full text-white px-4 py-4 rounded-2xl font-bold transition active:scale-95 ${t('bg-slate-800 hover:bg-slate-900', 'bg-blue-600 hover:bg-blue-700')}`}>Concluído</button>
+              <button onClick={() => setIsConfigModalOpen(false)} className="w-full text-white px-4 py-4 rounded-2xl font-bold transition active:scale-95 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700">Concluído</button>
             </div>
           </div>
         </div>
@@ -1286,5 +1324,3 @@ export default function App() {
     </div>
   );
 }
-
-
