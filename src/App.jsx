@@ -1165,6 +1165,79 @@ function MainApp() {
       )}
 
       {/* NOTIFICAÇÕES E DESATIVAR OCULTOS PARA RESUMO DO ESPAÇO */}
+      
+      {isNotificationsOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-end sm:items-center justify-center p-4">
+          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 flex flex-col transition-colors ${t('bg-white', 'bg-slate-800')}`}>
+            <div className={`px-6 py-5 border-b flex justify-between items-center shrink-0 ${t('bg-white border-slate-100', 'bg-slate-800 border-slate-700')}`}>
+              <h2 className={`text-xl font-bold flex items-center gap-2 ${t('text-slate-800', 'text-white')}`}><Bell size={20} className="text-slate-400"/> Notificações</h2>
+              <button type="button" onClick={() => setIsNotificationsOpen(false)} className={`p-2 rounded-full transition ${t('text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100', 'text-slate-400 hover:text-slate-200 bg-slate-700 hover:bg-slate-600')}`}><X size={20} /></button>
+            </div>
+            
+            <div className="p-6">
+              {hasNotifications ? (
+                <div className="flex flex-col gap-3">
+                  {stats.today > 0 && (
+                    <div 
+                      onClick={() => { setFilterType('TODAY'); setIsNotificationsOpen(false); }} 
+                      className={`cursor-pointer p-4 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition border ${t('bg-orange-50 border-orange-100 text-orange-800 hover:bg-orange-100', 'bg-orange-500/10 border-orange-500/20 text-orange-400 hover:bg-orange-500/20')}`}
+                    >
+                      <AlertTriangle size={24} className="text-orange-500 shrink-0" />
+                      <div>
+                        <h4 className="font-bold">Atenção para Hoje</h4>
+                        <p className="text-sm opacity-90">Você tem {stats.today} cliente(s) a vencer hoje.</p>
+                      </div>
+                    </div>
+                  )}
+                  {stats.overdue > 0 && (
+                    <div 
+                      onClick={() => { setFilterType('OVERDUE'); setIsNotificationsOpen(false); }} 
+                      className={`cursor-pointer p-4 rounded-2xl flex items-center gap-3 active:scale-[0.98] transition border ${t('bg-red-50 border-red-100 text-red-800 hover:bg-red-100', 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20')}`}
+                    >
+                      <AlertCircle size={24} className="text-red-500 shrink-0" />
+                      <div>
+                        <h4 className="font-bold">Pagamentos em Atraso</h4>
+                        <p className="text-sm opacity-90">{stats.overdue} cliente(s) com mensalidade vencida.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className={`text-center py-6 ${t('text-slate-500', 'text-slate-400')}`}>
+                  <CheckCircle size={40} className="mx-auto mb-3 text-emerald-400 opacity-80" />
+                  <p className={`font-medium ${t('text-slate-700', 'text-slate-300')}`}>Tudo limpo por aqui!</p>
+                  <p className="text-sm mt-1">Nenhum aviso no momento.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {clientToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 overflow-hidden p-6 transition-colors ${t('bg-white', 'bg-slate-800')}`}>
+            <div className="flex flex-col items-center text-center">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${t('bg-red-100 text-red-500', 'bg-red-500/20 text-red-400')}`}>
+                <Archive size={32} />
+              </div>
+              <h2 className={`text-xl font-bold mb-2 ${t('text-slate-800', 'text-white')}`}>Desativar Cliente?</h2>
+              <p className={`mb-6 text-sm ${t('text-slate-500', 'text-slate-400')}`}>
+                <strong>{clientToDelete.name}</strong> sairá da lista principal e deixará de ser cobrado(a), mas os <strong>pagamentos antigos continuarão salvos</strong>. Poderá reativá-lo mais tarde na aba de Inativos.
+              </p>
+              
+              <div className="flex gap-3 w-full mb-3">
+                <button onClick={() => setClientToDelete(null)} className={`flex-1 py-3.5 font-bold rounded-2xl transition active:scale-95 ${t('bg-slate-100 text-slate-600 hover:bg-slate-200', 'bg-slate-700 text-slate-300 hover:bg-slate-600')}`}>Cancelar</button>
+                <button onClick={confirmArchive} className={`flex-1 py-3.5 text-white font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 ${t('bg-red-500 hover:bg-red-600', 'bg-red-600 hover:bg-red-500')}`}><Archive size={18}/> Desativar</button>
+              </div>
+              
+              <button onClick={confirmHardDelete} className={`text-xs underline py-2 mt-2 transition ${t('text-slate-400 hover:text-red-500', 'text-slate-500 hover:text-red-400')}`}>
+                 Excluir permanentemente (apaga o histórico)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isPaymentModalOpen && payingClient && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
