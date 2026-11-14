@@ -4,7 +4,7 @@ import {
   Users, Calendar, Tv, LogOut, Lock, Mail,
   AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff, RotateCcw,
-  Moon, Sun, Copy, Info, Monitor, Cpu, Server, Link, Paperclip, UploadCloud, Image as ImageIcon
+  Moon, Sun, Copy, Info, Monitor, Cpu, Server, Link, Paperclip, UploadCloud, Image as ImageIcon, MessageCircle
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -160,7 +160,7 @@ function MainApp() {
   const [isUploading, setIsUploading] = useState(false); 
   
   const [formData, setFormData] = useState({
-    name: '', username: '', appName: '', appMac: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: getRealTodayString(), customValue: 30, paymentHistory: [], notes: '', active: true
+    name: '', username: '', phone: '', appName: '', appMac: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: getRealTodayString(), customValue: 30, paymentHistory: [], notes: '', active: true
   });
 
   const [paymentForm, setPaymentForm] = useState({ monthsToPay: 1, discount: 0, attachment: null });
@@ -451,6 +451,7 @@ function MainApp() {
       setFormData({
         name: client.name, 
         username: client.username || '',
+        phone: client.phone || '',
         appName: client.appName || '',
         appMac: client.appMac || '',
         dueDate: client.dueDate, 
@@ -466,7 +467,7 @@ function MainApp() {
     } else {
       setEditingClient(null);
       setFormData({ 
-        name: '', username: '', appName: '', appMac: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: currentViewMonth,
+        name: '', username: '', phone: '', appName: '', appMac: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: currentViewMonth,
         customValue: globalUnitValue, paymentHistory: [], notes: '', active: true
       });
     }
@@ -488,6 +489,7 @@ function MainApp() {
     const clientData = {
       name: formData.name,
       username: cleanUsername,
+      phone: formData.phone || '',
       appName: formData.appName || '',
       appMac: formData.appMac || '',
       dueDate: Number(formData.dueDate),
@@ -692,6 +694,33 @@ function MainApp() {
           setViewingClient(prev => ({ ...prev, nextPayment: revertedNextPaymentStr, paidMonths: newPaidMonths, paymentHistory: newHistory }));
       }
     } catch (err) {}
+  };
+
+  const sendWhatsApp = (client) => {
+    if (!client.phone) {
+       alert("Por favor, adicione o número de telefone (WhatsApp) nas edições deste cliente primeiro.");
+       return;
+    }
+    const phone = client.phone.replace(/\D/g, '');
+    
+    const msg = `*MENSAGEM AUTOMÁTICA SISTEMA ELITE TV*
+
+*Aviso sobre vencimento de assinatura.* Para renovação, siga orientações de pagamento abaixo ou contate seu fornecedor!
+
+*Dados para depósito/transferência*
+
+*PIX: (85)988384338*
+*MARCILIO ROGÉRIO DOS SANTOS*
+
+*Valores para renovação*
+01 mês: R$ 30,00
+02 meses: R$ 55,00
+03 meses: R$ 80,00
+
+*Favor enviar comprovante*✅`;
+    
+    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
   };
 
   const handleCopyReceipt = () => {
@@ -904,8 +933,6 @@ function MainApp() {
             <div>
               <div className="relative mb-4">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Search className={`h-5 w-5 ${t('text-slate-400', 'text-slate-500')}`} /></div>
-                
-                {/* CORREÇÃO AQUI: type="search" e autoComplete="off" para evitar o login do Safari */}
                 <input 
                   type="search" 
                   autoComplete="off"
@@ -1005,7 +1032,6 @@ function MainApp() {
         <button onClick={() => handleOpenModal()} className={`fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-90 transition-transform z-10 ${t('shadow-blue-300', 'shadow-none')}`}><Plus size={28} /></button>
       )}
 
-      {/* CORREÇÃO DO MODAL: VISUALIZADOR DE RECIBO EM TELA CHEIA */}
       {viewingReceipt && (
         <div 
           className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center p-4" 
@@ -1055,6 +1081,14 @@ function MainApp() {
 
             <div className="p-6 overflow-y-auto space-y-5">
               
+              {/* BOTÃO DO WHATSAPP */}
+              <button 
+                onClick={() => sendWhatsApp(viewingClient)} 
+                className="w-full bg-[#25D366] text-white py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#20b858] transition active:scale-95 shadow-sm"
+              >
+                <MessageCircle size={20} /> Enviar Cobrança 
+              </button>
+
               <div className="grid grid-cols-2 gap-3">
                  <div className={`p-3 rounded-2xl border ${t('bg-white border-slate-100', 'bg-slate-800/50 border-slate-700')}`}>
                     <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 ${t('text-slate-400', 'text-slate-500')}`}>Vencimento</p>
@@ -1190,9 +1224,15 @@ function MainApp() {
                   <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
                 </div>
 
-                <div>
-                  <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Username / Utilizador (Opcional)</label>
-                  <input type="text" placeholder="Ex: joao_silva" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Usuário (Opcional)</label>
+                    <input type="text" placeholder="@joao" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Tel. (WhatsApp)</label>
+                    <input type="tel" placeholder="85988887777" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`} />
+                  </div>
                 </div>
                 
                 <div className={`p-4 rounded-2xl border ${t('bg-slate-50 border-slate-100', 'bg-slate-900/50 border-slate-700')}`}>
@@ -1546,3 +1586,6 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+```eof
+
+Para testar esta novidade, edite os dados de um cliente, adicione o telefone dele, grave e depois abra novamente o cliente (fora do modo edição) para clicar no **novo botão verde do WhatsApp**! O que achou do resultado?
