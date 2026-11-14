@@ -649,6 +649,7 @@ function MainApp() {
       
       setPaymentReceipt({
         clientName: payingClient.name,
+        clientPhone: payingClient.phone,
         months: monthsToAdd,
         dueDate: payingClient.dueDate,
         nextMonthName: nextMonthName
@@ -698,7 +699,7 @@ function MainApp() {
 
   const sendWhatsApp = (client) => {
     if (!client.phone) {
-       alert("Por favor, adicione o número de telefone (WhatsApp) nas edições deste cliente primeiro.");
+       alert("Por favor, edite este cliente e adicione o número de telefone (WhatsApp) primeiro.");
        return;
     }
     const phone = client.phone.replace(/\D/g, '');
@@ -730,6 +731,18 @@ function MainApp() {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2500);
     });
+  };
+
+  const handleSendReceiptWhatsApp = () => {
+    if (!paymentReceipt) return;
+    if (!paymentReceipt.clientPhone) {
+      alert("Este cliente não tem número de WhatsApp registado. Use o botão de copiar o texto em vez disso.");
+      return;
+    }
+    const phone = paymentReceipt.clientPhone.replace(/\D/g, '');
+    const message = `Olá *${paymentReceipt.clientName}*, tudo bem? 🚀\nO seu pagamento foi recebido e a renovação de *${paymentReceipt.months} mês(es)* foi concluída com sucesso! Muito obrigado!\n\n📅 O seu próximo vencimento será no *dia ${paymentReceipt.dueDate} de ${paymentReceipt.nextMonthName}*.\n\nQualquer dúvida, estamos à disposição!`;
+    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
   };
 
   const handleAddServer = async (e) => {
@@ -1081,14 +1094,6 @@ function MainApp() {
 
             <div className="p-6 overflow-y-auto space-y-5">
               
-              {/* BOTÃO DO WHATSAPP */}
-              <button 
-                onClick={() => sendWhatsApp(viewingClient)} 
-                className="w-full bg-[#25D366] text-white py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-[#20b858] transition active:scale-95 shadow-sm"
-              >
-                <MessageCircle size={20} /> Enviar Cobrança 
-              </button>
-
               <div className="grid grid-cols-2 gap-3">
                  <div className={`p-3 rounded-2xl border ${t('bg-white border-slate-100', 'bg-slate-800/50 border-slate-700')}`}>
                     <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 ${t('text-slate-400', 'text-slate-500')}`}>Vencimento</p>
@@ -1183,11 +1188,20 @@ function MainApp() {
 
             <div className={`p-4 border-t flex gap-2 shrink-0 ${t('bg-slate-50 border-slate-100', 'bg-slate-800 border-slate-700')}`}>
                <button 
-                  onClick={() => handleOpenModal(viewingClient)} 
-                  className={`flex-1 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 transition active:scale-95 ${t('bg-blue-100 text-blue-700 hover:bg-blue-200', 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30')}`}
+                  onClick={() => sendWhatsApp(viewingClient)} 
+                  title="Enviar Cobrança (WhatsApp)"
+                  className={`px-4 py-3.5 rounded-2xl font-bold flex items-center justify-center transition active:scale-95 border ${t('bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100', 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20')}`}
                 >
-                  <Edit2 size={18} /> Editar Dados
+                  <MessageCircle size={18} />
                </button>
+               <button 
+                  onClick={() => handleOpenModal(viewingClient)} 
+                  title="Editar Dados"
+                  className={`px-4 py-3.5 rounded-2xl font-bold flex items-center justify-center transition active:scale-95 border ${t('bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100', 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20')}`}
+                >
+                  <Edit2 size={18} />
+               </button>
+               
                {viewingClient.paymentStatus.status !== 'PAID' && viewingClient.paymentStatus.status !== 'ARCHIVED' && (
                  <button 
                     onClick={() => { setViewingClient(null); handleOpenPaymentModal(viewingClient); }} 
@@ -1195,6 +1209,9 @@ function MainApp() {
                   >
                     <DollarSign size={18} /> Receber
                  </button>
+               )}
+               {(viewingClient.paymentStatus.status === 'PAID' || viewingClient.paymentStatus.status === 'ARCHIVED') && (
+                 <div className="flex-1"></div>
                )}
             </div>
           </div>
@@ -1501,10 +1518,18 @@ function MainApp() {
             </div>
 
             <div className="flex flex-col gap-3">
-              <button onClick={handleCopyReceipt} className={`w-full py-4 font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 ${isCopied ? t('bg-emerald-500 text-white', 'bg-emerald-600 text-white') : t('bg-blue-600 text-white hover:bg-blue-700', 'bg-blue-600 text-white hover:bg-blue-700')}`}>
-                {isCopied ? <CheckCircle size={18} /> : <Copy size={18} />} {isCopied ? 'Mensagem Copiada!' : 'Copiar para Enviar'}
+              <button onClick={handleSendReceiptWhatsApp} className="w-full py-4 font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 bg-[#25D366] text-white hover:bg-[#20b858]">
+                <MessageCircle size={18} /> Enviar pelo WhatsApp
               </button>
-              <button onClick={() => setPaymentReceipt(null)} className={`w-full py-3.5 font-bold rounded-2xl transition active:scale-95 ${t('bg-slate-100 text-slate-600 hover:bg-slate-200', 'bg-slate-700 text-slate-300 hover:bg-slate-600')}`}>Fechar</button>
+              
+              <div className="flex gap-3 w-full">
+                <button onClick={handleCopyReceipt} className={`flex-1 py-3.5 font-bold rounded-2xl transition active:scale-95 flex items-center justify-center gap-2 ${isCopied ? t('bg-emerald-100 text-emerald-700', 'bg-emerald-500/20 text-emerald-400') : t('bg-slate-100 text-slate-600 hover:bg-slate-200', 'bg-slate-700 text-slate-300 hover:bg-slate-600')}`}>
+                  {isCopied ? <CheckCircle size={18} /> : <Copy size={18} />} {isCopied ? 'Copiado' : 'Copiar'}
+                </button>
+                <button onClick={() => setPaymentReceipt(null)} className={`flex-1 py-3.5 font-bold rounded-2xl transition active:scale-95 ${t('bg-slate-100 text-slate-600 hover:bg-slate-200', 'bg-slate-700 text-slate-300 hover:bg-slate-600')}`}>
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         </div>
