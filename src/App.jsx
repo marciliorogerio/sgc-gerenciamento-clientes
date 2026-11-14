@@ -4,14 +4,14 @@ import {
   Users, Calendar, Tv, LogOut, Lock, Mail,
   AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff, RotateCcw,
-  Moon, Sun, Copy, Info, Monitor, Cpu, Server, Link
+  Moon, Sun, Copy, Info, Monitor, Cpu, Server, Link, Paperclip, UploadCloud
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
-const firebaseConfig = {
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
   apiKey: "AIzaSyDfmahffoPM8p05PrJkGoL3GV87eo7NLhk",
   authDomain: "gestao-clientes-3d46b.firebaseapp.com",
   projectId: "gestao-clientes-3d46b",
@@ -23,7 +23,28 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = 'sgc-gerenciamento-clientes';
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'sgc-gerenciamento-clientes';
+
+// Função para upload de imagem anônimo (grátis e sem cartão) via imgbb
+const uploadImageToImgbb = async (file) => {
+  const formData = new FormData();
+  formData.append('image', file);
+  
+  try {
+    const response = await fetch('https://api.imgbb.com/1/upload?key=67f185c76af0a300e5dc7984852d4317', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await response.json();
+    if (data.success) {
+      return data.data.url; // Retorna o link direto da imagem salva na nuvem
+    }
+    return null;
+  } catch (error) {
+    console.error("Erro ao fazer upload da imagem:", error);
+    return null;
+  }
+};
 
 const getRealTodayString = () => {
   const today = new Date();
@@ -38,7 +59,6 @@ const formatMonthYear = (dateString) => {
   return `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
 };
 
-// Nova Função Auxiliar para Copiar Textos
 const copyToClipboard = (text, onSuccess) => {
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text).then(onSuccess).catch(()=>{});
@@ -55,17 +75,13 @@ const copyToClipboard = (text, onSuccess) => {
   }
 };
 
-// Formatação automática do MAC Address (XX:XX:XX:XX:XX:XX)
 const formatMAC = (val) => {
   if (!val) return '';
-  // Remove tudo o que não for letra ou número e converte para maiúsculas (máx 12 caracteres)
   const raw = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().substring(0, 12);
-  // Divide a cada 2 caracteres
   const parts = raw.match(/.{1,2}/g);
   return parts ? parts.join(':') : '';
 };
 
-// Escudo Anti-Crash (Impede a temida tela escura)
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -93,7 +109,7 @@ function MainApp() {
   const [isSynced, setIsSynced] = useState(false);
   
   const [clients, setClients] = useState([]);
-  const [servers, setServers] = useState([]); // NOVO: Lista de servidores
+  const [servers, setServers] = useState([]); 
   
   const [globalUnitValue, setGlobalUnitValue] = useState(30.00);
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,20 +132,20 @@ function MainApp() {
 
   const [paymentReceipt, setPaymentReceipt] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
-  const [copiedMac, setCopiedMac] = useState(false); // Feedback visual para MAC
-  const [copiedServerId, setCopiedServerId] = useState(null); // Feedback visual para Servidores
+  const [copiedMac, setCopiedMac] = useState(false); 
+  const [copiedServerId, setCopiedServerId] = useState(null); 
 
   const [editingClient, setEditingClient] = useState(null);
   const [payingClient, setPayingClient] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [isUploading, setIsUploading] = useState(false); 
   
   const [formData, setFormData] = useState({
     name: '', username: '', appName: '', appMac: '', dueDate: '', paidMonths: 0, subscriptions: 1, nextPayment: getRealTodayString(), customValue: 30, paymentHistory: [], notes: '', active: true
   });
 
-  const [paymentForm, setPaymentForm] = useState({ monthsToPay: 1, discount: 0 });
+  const [paymentForm, setPaymentForm] = useState({ monthsToPay: 1, discount: 0, attachment: null });
 
-  // Estado do formulário de novo servidor
   const [newServerName, setNewServerName] = useState('');
   const [newServerUrl, setNewServerUrl] = useState('');
 
@@ -167,7 +183,6 @@ function MainApp() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch Clientes e Servidores
   useEffect(() => {
     if (!user) {
       setClients([]);
@@ -177,7 +192,6 @@ function MainApp() {
 
     setIsDataLoading(true);
     
-    // Listener Clientes
     const clientsRef = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
     const unsubClients = onSnapshot(clientsRef, (snapshot) => {
       const items = [];
@@ -190,7 +204,6 @@ function MainApp() {
       setIsDataLoading(false);
     });
 
-    // Listener Servidores
     const serversRef = collection(db, 'artifacts', appId, 'public', 'data', 'servers');
     const unsubServers = onSnapshot(serversRef, (snapshot) => {
       const items = [];
@@ -517,28 +530,36 @@ function MainApp() {
 
   const handleOpenPaymentModal = (client) => {
     setPayingClient(client);
-    setPaymentForm({ monthsToPay: 1, discount: 0 });
+    setPaymentForm({ monthsToPay: 1, discount: 0, attachment: null });
     setIsPaymentModalOpen(true);
-    setViewingClient(null); // Fecha o modal de detalhes para não encavalar
+    setViewingClient(null); 
   };
 
   const handleClosePaymentModal = () => {
     setIsPaymentModalOpen(false);
     setPayingClient(null);
+    setIsUploading(false);
   };
 
   const handleConfirmPayment = async (e) => {
     e.preventDefault();
     if (!payingClient || !user) return;
+    setIsUploading(true);
 
     try {
+      let attachmentUrl = null;
+
+      // Upload da Imagem para ImgBB (Serviço Grátis, sem cartão)
+      if (paymentForm.attachment) {
+        attachmentUrl = await uploadImageToImgbb(paymentForm.attachment);
+      }
+
       const monthsToAdd = Number(paymentForm.monthsToPay);
       const discount = Number(paymentForm.discount);
       
       const subtotal = (Number(payingClient.customValue) || globalUnitValue) * (Number(payingClient.subscriptions) || 1) * monthsToAdd;
       const totalPaid = Math.max(0, subtotal - discount);
 
-      // CORREÇÃO SEGURA DE DATA AQUI
       let currentNextYear = new Date().getFullYear();
       let currentNextMonth = new Date().getMonth() + 1;
 
@@ -570,7 +591,8 @@ function MainApp() {
         monthsPaid: monthsToAdd,
         amount: totalPaid,
         discount: discount,
-        refMonths: paidMonthsLabels.join(', ')
+        refMonths: paidMonthsLabels.join(', '),
+        attachmentUrl: attachmentUrl // Guarda a URL da imagem salva!
       };
 
       let year = currentNextYear;
@@ -589,7 +611,6 @@ function MainApp() {
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'clients', payingClient.id);
       await updateDoc(docRef, updatedData);
       
-      // GERA O NOME DO MÊS DE FORMA SEGURA
       let nextMonthName = "";
       try {
         const nextDateObj = new Date(year, month - 1);
@@ -610,6 +631,8 @@ function MainApp() {
     } catch (err) {
       console.error("Erro ao confirmar:", err);
       alert("Houve um erro ao registar o pagamento.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -656,7 +679,6 @@ function MainApp() {
     });
   };
 
-  // Funções para Servidores
   const handleAddServer = async (e) => {
     e.preventDefault();
     if (!newServerName || !newServerUrl || !user) return;
@@ -749,7 +771,6 @@ function MainApp() {
     );
   }
 
-  // TELA PRINCIPAL (DASHBOARD)
   return (
     <div className={`min-h-screen pb-24 font-sans transition-colors duration-300 ${t('bg-slate-50 text-slate-800', 'bg-slate-900 text-slate-100')}`}>
       
@@ -794,7 +815,6 @@ function MainApp() {
         </div>
       ) : (
         <>
-          {/* CARDS DE INFORMAÇÕES */}
           <div className="px-5 mb-6 flex flex-col gap-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className={`p-4 rounded-[1.25rem] border flex items-center gap-4 transition-colors ${t('bg-white shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)] border-slate-100', 'bg-slate-800 shadow-none border-slate-700')}`}>
@@ -842,7 +862,6 @@ function MainApp() {
             </div>
           </div>
 
-          {/* CALENDÁRIO */}
           <div className="px-5 mb-8">
             <div className={`p-2 rounded-[1.5rem] border flex items-center justify-between transition-colors ${t('bg-white border-slate-100 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.05)]', 'bg-slate-800 border-slate-700 shadow-none')}`}>
               <button onClick={() => handleMonthChange(-1)} className={`p-3 rounded-xl transition ${t('text-slate-400 hover:bg-slate-50 hover:text-slate-800', 'text-slate-500 hover:bg-slate-700 hover:text-white')}`}><ChevronLeft size={22}/></button>
@@ -857,7 +876,6 @@ function MainApp() {
             </div>
           </div>
 
-          {/* CONTEÚDO PRINCIPAL */}
           <div className="px-5 space-y-5">
             <div>
               <div className="relative mb-4">
@@ -1036,15 +1054,22 @@ function MainApp() {
                   {viewingClient.paymentHistory && viewingClient.paymentHistory.length > 0 ? (
                     <div className="max-h-48 overflow-y-auto p-3 space-y-3">
                       {viewingClient.paymentHistory.map((record) => (
-                        <div key={record.id} className={`text-sm border-b pb-3 last:border-0 last:pb-0 relative group ${t('border-slate-100', 'border-slate-700')}`}>
+                        <div key={record.id} className={`text-sm border-b pb-3 last:border-0 last:pb-0 relative group flex flex-col gap-1 ${t('border-slate-100', 'border-slate-700')}`}>
                           <div className={`flex justify-between font-bold pr-8 ${t('text-slate-800', 'text-slate-200')}`}>
                             <span>{formatCurrency(record.amount)}</span>
                             <span className={`text-xs font-normal ${t('text-slate-400', 'text-slate-500')}`}>{formatDate(record.date)}</span>
                           </div>
-                          <div className={`text-xs mt-1 ${t('text-slate-500', 'text-slate-400')}`}>
+                          <div className={`text-xs ${t('text-slate-500', 'text-slate-400')}`}>
                             Ref: <span className={`font-medium ${t('text-slate-700', 'text-slate-300')}`}>{record.refMonths || `${record.monthsPaid} mês(es)`}</span>
                           </div>
-                          {record.discount > 0 && <div className={`text-xs mt-0.5 ${t('text-emerald-600', 'text-emerald-400')}`}>Desconto de {formatCurrency(record.discount)} aplicado.</div>}
+                          {record.discount > 0 && <div className={`text-xs ${t('text-emerald-600', 'text-emerald-400')}`}>Desconto de {formatCurrency(record.discount)} aplicado.</div>}
+                          
+                          {/* LINK PARA O ANEXO */}
+                          {record.attachmentUrl && (
+                            <a href={record.attachmentUrl} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 mt-1 text-xs font-bold transition active:scale-95 ${t('text-blue-600 hover:text-blue-700', 'text-blue-400 hover:text-blue-300')}`}>
+                              <Paperclip size={12} /> Ver Comprovante
+                            </a>
+                          )}
                           
                           <button 
                             type="button" 
@@ -1164,7 +1189,7 @@ function MainApp() {
         </div>
       )}
 
-      {/* NOTIFICAÇÕES E DESATIVAR OCULTOS PARA RESUMO DO ESPAÇO */}
+      {/* NOTIFICAÇÕES E DESATIVAR OCULTOS */}
       
       {isNotificationsOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] flex items-end sm:items-center justify-center p-4">
@@ -1283,10 +1308,28 @@ function MainApp() {
                     <span>Total a Receber</span>
                     <span>{formatCurrency(Math.max(0, ((Number(payingClient.customValue) || globalUnitValue) * (Number(payingClient.subscriptions) || 1) * paymentForm.monthsToPay) - paymentForm.discount))}</span>
                   </div>
+                  
+                  {/* UPLOAD DE ARQUIVO SEM CARTÃO */}
+                  <div className={`pt-2 border-t mt-2 ${t('border-slate-200', 'border-slate-700')}`}>
+                     <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1 ${t('text-slate-700', 'text-slate-300')}`}>
+                       <Paperclip size={14}/> Anexar Comprovativo (Opcional)
+                     </label>
+                     <input 
+                       type="file" 
+                       accept="image/*" 
+                       onChange={(e) => setPaymentForm({...paymentForm, attachment: e.target.files[0]})} 
+                       className={`w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold transition-colors cursor-pointer ${t('file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-slate-500', 'file:bg-blue-500/20 file:text-blue-400 hover:file:bg-blue-500/30 text-slate-400')}`} 
+                     />
+                  </div>
+
                 </div>
               </div>
-              <button type="submit" className="w-full mt-6 bg-blue-600 text-white px-4 py-4 rounded-2xl font-bold hover:bg-blue-700 transition active:scale-95 flex items-center justify-center gap-2">
-                <CheckCircle size={20} /> Confirmar Pagamento
+              <button type="submit" disabled={isUploading} className={`w-full mt-6 text-white px-4 py-4 rounded-2xl font-bold transition active:scale-95 flex items-center justify-center gap-2 ${isUploading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {isUploading ? (
+                  <><UploadCloud size={20} className="animate-bounce" /> A enviar comprovativo...</>
+                ) : (
+                  <><CheckCircle size={20} /> Confirmar Pagamento</>
+                )}
               </button>
             </form>
           </div>
