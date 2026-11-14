@@ -1586,6 +1586,3 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-```eof
-
-Para testar esta novidade, edite os dados de um cliente, adicione o telefone dele, grave e depois abra novamente o cliente (fora do modo edição) para clicar no **novo botão verde do WhatsApp**! O que achou do resultado?
