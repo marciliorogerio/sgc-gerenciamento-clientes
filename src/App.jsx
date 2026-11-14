@@ -4,7 +4,7 @@ import {
   Users, Calendar, Tv, LogOut, Lock, Mail,
   AlertCircle, AlertTriangle, CheckCircle, Clock, FileText, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, X, Bell, User, Archive, LayoutDashboard, Cloud, CloudOff, RotateCcw,
-  Moon, Sun, Copy, Info, Monitor, Cpu, Server, Link, Paperclip, UploadCloud
+  Moon, Sun, Copy, Info, Monitor, Cpu, Server, Link, Paperclip, UploadCloud, Image as ImageIcon
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -25,25 +25,45 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'sgc-gerenciamento-clientes';
 
-// Função para upload de imagem anônimo (grátis e sem cartão) via imgbb
-const uploadImageToImgbb = async (file) => {
-  const formData = new FormData();
-  formData.append('image', file);
-  
-  try {
-    const response = await fetch('https://api.imgbb.com/1/upload?key=67f185c76af0a300e5dc7984852d4317', {
-      method: 'POST',
-      body: formData
-    });
-    const data = await response.json();
-    if (data.success) {
-      return data.data.url; 
-    }
-    return null;
-  } catch (error) {
-    console.error("Erro ao fazer upload da imagem:", error);
-    return null;
-  }
+// NOVO: Função para comprimir a imagem e convertê-la para Base64 (Guarda direto na Base de Dados)
+const compressImage = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800; // Tamanho máximo
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Comprime para qualidade média (reduz muito o tamanho)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        resolve(dataUrl);
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
 };
 
 const getRealTodayString = () => {
@@ -129,6 +149,7 @@ function MainApp() {
   const [clientToDelete, setClientToDelete] = useState(null);
 
   const [viewingClient, setViewingClient] = useState(null);
+  const [viewingReceipt, setViewingReceipt] = useState(null); // NOVO: Estado para ver comprovativo
 
   const [paymentReceipt, setPaymentReceipt] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -550,13 +571,13 @@ function MainApp() {
       let attachmentUrl = null;
 
       if (paymentForm.attachment) {
-        attachmentUrl = await uploadImageToImgbb(paymentForm.attachment);
-        
-        // NOVO: Adicionado alerta se o envio da imagem falhar!
-        if (!attachmentUrl) {
-          alert("Não foi possível salvar o anexo. Certifique-se de que escolheu uma IMAGEM (JPG, PNG) válida e não um PDF, ou que a imagem não é muito grande.");
+        try {
+          // Usa a nova função local que encolhe a imagem
+          attachmentUrl = await compressImage(paymentForm.attachment);
+        } catch (error) {
+          alert("Não foi possível processar a imagem. Certifique-se de escolher um arquivo de imagem válido (JPG/PNG).");
           setIsUploading(false);
-          return; // Aborta o pagamento para ele poder tentar novamente com a imagem correta.
+          return;
         }
       }
 
@@ -975,6 +996,18 @@ function MainApp() {
         <button onClick={() => handleOpenModal()} className={`fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-90 transition-transform z-10 ${t('shadow-blue-300', 'shadow-none')}`}><Plus size={28} /></button>
       )}
 
+      {/* MODAL: VISUALIZADOR DE RECIBO EM TELA CHEIA */}
+      {viewingReceipt && (
+        <div className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center p-4">
+          <div className="absolute top-0 left-0 w-full p-4 flex justify-end">
+            <button onClick={() => setViewingReceipt(null)} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition active:scale-90"><X size={24} /></button>
+          </div>
+          <div className="flex-1 w-full flex items-center justify-center relative">
+             <img src={viewingReceipt} alt="Comprovativo" className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" />
+          </div>
+        </div>
+      )}
+
       {/* MODAL 1: VISUALIZAÇÃO DE CLIENTE */}
       {viewingClient && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1070,11 +1103,15 @@ function MainApp() {
                           </div>
                           {record.discount > 0 && <div className={`text-xs ${t('text-emerald-600', 'text-emerald-400')}`}>Desconto de {formatCurrency(record.discount)} aplicado.</div>}
                           
-                          {/* LINK PARA O ANEXO */}
+                          {/* BOTÃO PARA VER ANEXO NA VISUALIZAÇÃO */}
                           {record.attachmentUrl && (
-                            <a href={record.attachmentUrl} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 mt-1 text-xs font-bold transition active:scale-95 ${t('text-blue-600 hover:text-blue-700', 'text-blue-400 hover:text-blue-300')}`}>
-                              <Paperclip size={12} /> Ver Comprovante
-                            </a>
+                            <button 
+                              type="button" 
+                              onClick={(e) => { e.stopPropagation(); setViewingReceipt(record.attachmentUrl); }} 
+                              className={`inline-flex items-center w-fit gap-1 mt-1 text-xs font-bold transition active:scale-95 ${t('text-blue-600 hover:text-blue-700', 'text-blue-400 hover:text-blue-300')}`}
+                            >
+                              <ImageIcon size={14} /> Ver Comprovante
+                            </button>
                           )}
                           
                           <button 
@@ -1186,7 +1223,6 @@ function MainApp() {
                   <textarea rows="2" placeholder="Adicione um detalhe..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`}></textarea>
                 </div>
 
-                {/* HISTÓRICO DE PAGAMENTO DENTRO DA EDIÇÃO */}
                 {editingClient && (
                   <div className={`border rounded-2xl overflow-hidden ${t('border-slate-200', 'border-slate-700')}`}>
                     <button type="button" onClick={() => setShowHistory(!showHistory)} className={`w-full px-4 py-3 flex justify-between items-center text-sm font-semibold transition-colors ${t('bg-slate-50 text-slate-700', 'bg-slate-700 text-slate-200')}`}>
@@ -1209,11 +1245,15 @@ function MainApp() {
                                 </div>
                                 {record.discount > 0 && <div className={`text-xs ${t('text-emerald-600', 'text-emerald-400')}`}>Desconto de {formatCurrency(record.discount)} aplicado.</div>}
                                 
-                                {/* O BOTÃO DO COMPROVATIVO AGORA TAMBÉM APARECE AQUI! */}
+                                {/* BOTÃO PARA VER ANEXO NA EDIÇÃO */}
                                 {record.attachmentUrl && (
-                                  <a href={record.attachmentUrl} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 mt-1 text-xs font-bold transition active:scale-95 ${t('text-blue-600 hover:text-blue-700', 'text-blue-400 hover:text-blue-300')}`}>
-                                    <Paperclip size={12} /> Ver Comprovante
-                                  </a>
+                                  <button 
+                                    type="button" 
+                                    onClick={(e) => { e.stopPropagation(); setViewingReceipt(record.attachmentUrl); }} 
+                                    className={`inline-flex items-center w-fit gap-1 mt-1 text-xs font-bold transition active:scale-95 ${t('text-blue-600 hover:text-blue-700', 'text-blue-400 hover:text-blue-300')}`}
+                                  >
+                                    <ImageIcon size={14} /> Ver Comprovante
+                                  </button>
                                 )}
                                 
                                 <button 
@@ -1364,7 +1404,7 @@ function MainApp() {
                     <span>{formatCurrency(Math.max(0, ((Number(payingClient.customValue) || globalUnitValue) * (Number(payingClient.subscriptions) || 1) * paymentForm.monthsToPay) - paymentForm.discount))}</span>
                   </div>
                   
-                  {/* UPLOAD DE ARQUIVO SEM CARTÃO */}
+                  {/* UPLOAD DE ARQUIVO INTERNO E SEGURO */}
                   <div className={`pt-2 border-t mt-2 ${t('border-slate-200', 'border-slate-700')}`}>
                      <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1 ${t('text-slate-700', 'text-slate-300')}`}>
                        <Paperclip size={14}/> Anexar Comprovativo (Opcional)
@@ -1381,7 +1421,7 @@ function MainApp() {
               </div>
               <button type="submit" disabled={isUploading} className={`w-full mt-6 text-white px-4 py-4 rounded-2xl font-bold transition active:scale-95 flex items-center justify-center gap-2 ${isUploading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {isUploading ? (
-                  <><UploadCloud size={20} className="animate-bounce" /> A enviar comprovativo...</>
+                  <><UploadCloud size={20} className="animate-bounce" /> A processar ficheiro...</>
                 ) : (
                   <><CheckCircle size={20} /> Confirmar Pagamento</>
                 )}
