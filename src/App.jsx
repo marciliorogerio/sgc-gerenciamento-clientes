@@ -25,7 +25,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'sgc-gerenciamento-clientes';
 
-// NOVO: Função para comprimir a imagem e convertê-la para Base64 (Guarda direto na Base de Dados)
 const compressImage = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -35,7 +34,7 @@ const compressImage = (file) => {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800; // Tamanho máximo
+        const MAX_WIDTH = 800; 
         const MAX_HEIGHT = 800;
         let width = img.width;
         let height = img.height;
@@ -56,7 +55,6 @@ const compressImage = (file) => {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Comprime para qualidade média (reduz muito o tamanho)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
         resolve(dataUrl);
       };
@@ -149,7 +147,7 @@ function MainApp() {
   const [clientToDelete, setClientToDelete] = useState(null);
 
   const [viewingClient, setViewingClient] = useState(null);
-  const [viewingReceipt, setViewingReceipt] = useState(null); // NOVO: Estado para ver comprovativo
+  const [viewingReceipt, setViewingReceipt] = useState(null); 
 
   const [paymentReceipt, setPaymentReceipt] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -572,7 +570,6 @@ function MainApp() {
 
       if (paymentForm.attachment) {
         try {
-          // Usa a nova função local que encolhe a imagem
           attachmentUrl = await compressImage(paymentForm.attachment);
         } catch (error) {
           alert("Não foi possível processar a imagem. Certifique-se de escolher um arquivo de imagem válido (JPG/PNG).");
@@ -907,7 +904,19 @@ function MainApp() {
             <div>
               <div className="relative mb-4">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Search className={`h-5 w-5 ${t('text-slate-400', 'text-slate-500')}`} /></div>
-                <input type="text" className={`block w-full pl-12 pr-4 py-3.5 border rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base transition-colors ${t('bg-white border-slate-200 placeholder-slate-400 text-slate-800 shadow-sm', 'bg-slate-800 border-slate-700 placeholder-slate-500 text-white shadow-none')}`} placeholder="Pesquisar nome ou @usuario..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                
+                {/* CORREÇÃO AQUI: type="search" e autoComplete="off" para evitar o login do Safari */}
+                <input 
+                  type="search" 
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck="false"
+                  name="search-clients-bar"
+                  className={`block w-full pl-12 pr-4 py-3.5 border rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base transition-colors ${t('bg-white border-slate-200 placeholder-slate-400 text-slate-800 shadow-sm', 'bg-slate-800 border-slate-700 placeholder-slate-500 text-white shadow-none')}`} 
+                  placeholder="Pesquisar nome ou @usuario..." 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                />
               </div>
               <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
                 {['ALL', 'OVERDUE', 'TODAY', 'UPCOMING', 'PAID', 'ARCHIVED'].map((type) => {
@@ -996,13 +1005,20 @@ function MainApp() {
         <button onClick={() => handleOpenModal()} className={`fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-90 transition-transform z-10 ${t('shadow-blue-300', 'shadow-none')}`}><Plus size={28} /></button>
       )}
 
-      {/* MODAL: VISUALIZADOR DE RECIBO EM TELA CHEIA */}
+      {/* CORREÇÃO DO MODAL: VISUALIZADOR DE RECIBO EM TELA CHEIA */}
       {viewingReceipt && (
-        <div className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center p-4">
-          <div className="absolute top-0 left-0 w-full p-4 flex justify-end">
-            <button onClick={() => setViewingReceipt(null)} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition active:scale-90"><X size={24} /></button>
-          </div>
-          <div className="flex-1 w-full flex items-center justify-center relative">
+        <div 
+          className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center p-4" 
+          onClick={() => setViewingReceipt(null)}
+        >
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setViewingReceipt(null); }} 
+            className="absolute top-6 right-6 p-3 bg-white/20 hover:bg-white/30 text-white rounded-full transition active:scale-90 z-[110]"
+          >
+            <X size={24} />
+          </button>
+          <div className="w-full flex items-center justify-center relative" onClick={(e) => e.stopPropagation()}>
              <img src={viewingReceipt} alt="Comprovativo" className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" />
           </div>
         </div>
@@ -1404,7 +1420,6 @@ function MainApp() {
                     <span>{formatCurrency(Math.max(0, ((Number(payingClient.customValue) || globalUnitValue) * (Number(payingClient.subscriptions) || 1) * paymentForm.monthsToPay) - paymentForm.discount))}</span>
                   </div>
                   
-                  {/* UPLOAD DE ARQUIVO INTERNO E SEGURO */}
                   <div className={`pt-2 border-t mt-2 ${t('border-slate-200', 'border-slate-700')}`}>
                      <label className={`block text-xs font-semibold mb-1.5 flex items-center gap-1 ${t('text-slate-700', 'text-slate-300')}`}>
                        <Paperclip size={14}/> Anexar Comprovativo (Opcional)
