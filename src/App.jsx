@@ -37,7 +37,7 @@ const uploadImageToImgbb = async (file) => {
     });
     const data = await response.json();
     if (data.success) {
-      return data.data.url; // Retorna o link direto da imagem salva na nuvem
+      return data.data.url; 
     }
     return null;
   } catch (error) {
@@ -549,9 +549,15 @@ function MainApp() {
     try {
       let attachmentUrl = null;
 
-      // Upload da Imagem para ImgBB (Serviço Grátis, sem cartão)
       if (paymentForm.attachment) {
         attachmentUrl = await uploadImageToImgbb(paymentForm.attachment);
+        
+        // NOVO: Adicionado alerta se o envio da imagem falhar!
+        if (!attachmentUrl) {
+          alert("Não foi possível salvar o anexo. Certifique-se de que escolheu uma IMAGEM (JPG, PNG) válida e não um PDF, ou que a imagem não é muito grande.");
+          setIsUploading(false);
+          return; // Aborta o pagamento para ele poder tentar novamente com a imagem correta.
+        }
       }
 
       const monthsToAdd = Number(paymentForm.monthsToPay);
@@ -592,7 +598,7 @@ function MainApp() {
         amount: totalPaid,
         discount: discount,
         refMonths: paidMonthsLabels.join(', '),
-        attachmentUrl: attachmentUrl // Guarda a URL da imagem salva!
+        attachmentUrl: attachmentUrl 
       };
 
       let year = currentNextYear;
@@ -1179,6 +1185,55 @@ function MainApp() {
                   <label className={`block text-sm font-semibold mb-1.5 ${t('text-slate-700', 'text-slate-300')}`}>Observações</label>
                   <textarea rows="2" placeholder="Adicione um detalhe..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className={`w-full px-4 py-3.5 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-colors ${t('border-slate-200 bg-slate-50 text-slate-800', 'border-slate-700 bg-slate-900 text-white')}`}></textarea>
                 </div>
+
+                {/* HISTÓRICO DE PAGAMENTO DENTRO DA EDIÇÃO */}
+                {editingClient && (
+                  <div className={`border rounded-2xl overflow-hidden ${t('border-slate-200', 'border-slate-700')}`}>
+                    <button type="button" onClick={() => setShowHistory(!showHistory)} className={`w-full px-4 py-3 flex justify-between items-center text-sm font-semibold transition-colors ${t('bg-slate-50 text-slate-700', 'bg-slate-700 text-slate-200')}`}>
+                      <span className="flex items-center gap-2"><FileText size={16} /> Histórico de Pagamentos</span>
+                      {showHistory ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    </button>
+                    
+                    {showHistory && (
+                      <div className={`p-4 border-t max-h-56 overflow-y-auto ${t('bg-white border-slate-200', 'bg-slate-800 border-slate-700')}`}>
+                        {formData.paymentHistory && formData.paymentHistory.length > 0 ? (
+                          <div className="space-y-4">
+                            {formData.paymentHistory.map((record) => (
+                              <div key={record.id} className={`text-sm border-b pb-3 last:border-0 last:pb-0 relative group flex flex-col gap-1 ${t('border-slate-100', 'border-slate-700')}`}>
+                                <div className={`flex justify-between font-bold pr-8 ${t('text-slate-800', 'text-slate-200')}`}>
+                                  <span>{formatCurrency(record.amount)}</span>
+                                  <span className={`text-xs font-normal ${t('text-slate-400', 'text-slate-500')}`}>{formatDate(record.date)}</span>
+                                </div>
+                                <div className={`text-xs ${t('text-slate-500', 'text-slate-400')}`}>
+                                  Ref: <span className={`font-medium ${t('text-slate-700', 'text-slate-300')}`}>{record.refMonths || `${record.monthsPaid} mês(es)`}</span>
+                                </div>
+                                {record.discount > 0 && <div className={`text-xs ${t('text-emerald-600', 'text-emerald-400')}`}>Desconto de {formatCurrency(record.discount)} aplicado.</div>}
+                                
+                                {/* O BOTÃO DO COMPROVATIVO AGORA TAMBÉM APARECE AQUI! */}
+                                {record.attachmentUrl && (
+                                  <a href={record.attachmentUrl} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 mt-1 text-xs font-bold transition active:scale-95 ${t('text-blue-600 hover:text-blue-700', 'text-blue-400 hover:text-blue-300')}`}>
+                                    <Paperclip size={12} /> Ver Comprovante
+                                  </a>
+                                )}
+                                
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleUndoPayment(editingClient, record.id)}
+                                  className={`absolute top-0 right-0 p-2 rounded-lg transition active:scale-95 ${t('text-slate-300 hover:text-red-500 hover:bg-red-50', 'text-slate-600 hover:text-red-400 hover:bg-red-500/10')}`}
+                                  title="Desfazer este pagamento"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className={`text-sm text-center py-2 ${t('text-slate-400', 'text-slate-500')}`}>Nenhum pagamento registado via app.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </form>
             
